@@ -10,14 +10,12 @@ const BUF_SIZE: usize = 512;
 const THREAD_MAX: usize = 8;
 const HANDSHAKE_MESSAGE: &'static str = "Hi There! 👋 \\^O^/";
 
-// GOD THIS IS RIDICULOUS.
 // Arc (Atomically Reference Counted) convinces the compiler
 // that it's safe to share between threads.
 // Mutex explicitly uses a lock to convince the compiler
 // that it's safe to mutate.
-// The peer set itself is a HashSet.
-// This is not Rust at all but people need sleep,
-// they can't just play with a compiler all day.
+// The peer list itself is a HashSet.
+// TODO: maybe better solution?
 type PeerSetType = Arc<Mutex<HashSet<SocketAddr>>>;
 
 trait Broadcast {
