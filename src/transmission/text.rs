@@ -28,11 +28,11 @@ impl text_transmission::SendText for TextTransmission<'_> {
             ));
         }
 
-        let mut buf = vec![0u8; LENGTH_PRESERVE_SIZE + len];
+        let mut buf = vec![0u8; 8 + len];
 
         // First 16 bits for packet size.
-        buf[0..LENGTH_PRESERVE_SIZE].copy_from_slice(len.to_ne_bytes().as_slice());
-        buf[LENGTH_PRESERVE_SIZE..].copy_from_slice(bytes);
+        buf[0..8].copy_from_slice(len.to_ne_bytes().as_slice());
+        buf[8..].copy_from_slice(bytes);
 
         self.socket.send(&buf)
     }
@@ -40,7 +40,7 @@ impl text_transmission::SendText for TextTransmission<'_> {
 
 impl text_transmission::ReadText for TextTransmission<'_> {
     fn read_text(&mut self) -> Result<String, io::Error> {
-        let mut size_buf: [u8; LENGTH_PRESERVE_SIZE] = [0u8; LENGTH_PRESERVE_SIZE];
+        let mut size_buf: [u8; 8] = [0u8; 8];
 
         self.socket.read_exact(&mut size_buf)?;
 
