@@ -3,15 +3,58 @@ use std::collections::{HashMap, HashSet};
 use std::fmt::format;
 use std::{io, time};
 use std::net::{IpAddr, Ipv4Addr, SocketAddr, UdpSocket};
+use std::ops::Add;
 use std::thread::sleep;
 use std::time::Duration;
 use chrono;
+use interfaces::{Address, Interface, InterfaceFlags};
 
 const BUF_SIZE: usize = 512;
 const THREAD_MAX: usize = 8;
 const HANDSHAKE_MESSAGE: &'static str = "Hi There! 👋 \\^O^/";
 
 pub type ClientHandler = fn(&SocketAddr);
+
+trait ToIpV4Addr {
+    fn to_ipv4_addr(&self) -> Ipv4Addr;
+}
+
+trait Broadcast {
+    fn to_broadcast_address(&self) -> Ipv4Addr;
+}
+
+impl ToIpV4Addr for SocketAddr {
+    fn to_ipv4_addr(&self) -> Ipv4Addr {
+        let address_default = Ipv4Addr::new(255, 255, 255, 255);
+        match self.ip() {
+            IpAddr::V4(x) => x,
+            _ => address_default,
+        }
+    }
+}
+
+impl Broadcast for Address {
+    fn to_broadcast_address(&self) -> Ipv4Addr {
+        let address_default = Ipv4Addr::new(255, 255, 255, 255);
+        let ipv4_address = match self.addr {
+            Some(x) => x.to_ipv4_addr(),
+            _ => address_default,
+        };
+        let mask_address = match self.mask {
+            Some(x) => x.to_ipv4_addr(),
+            _ => address_default,
+        };
+
+        let mut ip_octets = ipv4_address.octets();
+        let mut mask_octets = mask_address.octets();
+
+        for i in 0..4 {
+            ip_octets[i] |= !mask_octets[i];
+        }
+
+        Ipv4Addr::new(ip_octets[0], ip_octets[1], ip_octets[2], ip_octets[3])
+    }
+}
 
 fn get_local_ipv4_address(socket: &UdpSocket) -> Result<Ipv4Addr, io::Error> {
     let ip = socket.local_addr()?.ip();
@@ -25,6 +68,18 @@ fn get_local_ipv4_address(socket: &UdpSocket) -> Result<Ipv4Addr, io::Error> {
             )
         )
     }
+}
+
+fn get_broadcast_addresses() -> Result<Vec<Ipv4Addr>, interfaces::InterfacesError> {
+    Ok(
+        Interface::get_all()?
+            .iter()
+            .filter(|i| i.flags.contains(InterfaceFlags::IFF_BROADCAST))
+            .map(|i| i.addresses.clone())
+            .flatten()
+            .map(|a| a.to_broadcast_address())
+            .collect::<Vec<Ipv4Addr>>()
+    )
 }
 
 fn server_routine(
@@ -71,7 +126,17 @@ fn server_routine(
 
 fn client_routine(client_socket: &UdpSocket, server_port: i16) -> Result<(), io::Error> {
     let handshake_string_bytes = HANDSHAKE_MESSAGE.as_bytes();
+    let broadcast_addresses = match get_broadcast_addresses() {
+        Ok(x) => x,
+        Err(e) => {
+            println!("Error: {}", e);
+            return Ok(());
+        }
+    };
+
     let local_ip = get_local_ipv4_address(client_socket)?;
+
+    /*
     let broadcast_address = IpAddr::V4(
         Ipv4Addr::new(
             local_ip.octets()[0] | 0b11111111,
@@ -81,11 +146,14 @@ fn client_routine(client_socket: &UdpSocket, server_port: i16) -> Result<(), io:
         )
     );
     let target_address = SocketAddr::new(broadcast_address, server_port as u16);
+    */
+
     loop {
-        let _ = client_socket.send_to(
-            handshake_string_bytes,
-            target_address
-        );
+        broadcast_addresses.iter().for_each(|addr| {
+            let broadcast_addr = SocketAddr::new(IpAddr::from(addr.octets()), server_port as u16);
+            let _ = client_socket.send_to(handshake_string_bytes, broadcast_addr);
+        });
+
         sleep(Duration::from_secs(1));
     }
     Ok(())
@@ -103,7 +171,6 @@ impl DiscoveryService {
     pub fn new(server_port: i16, client_port: i16) -> Result<Self, io::Error> {
         let server_socket = UdpSocket::bind(
             format!("0.0.0.0:{}", server_port))?;
-
         let client_socket = UdpSocket::bind(
             format!("0.0.0.0:{}", client_port))?;
 
