@@ -12,7 +12,7 @@ fn handler(s: &SocketAddr) {
 }
 
 fn main() {
-    let mut service = DiscoveryService::new(9818, 12355)
+    let mut service = DiscoveryService::new(9818, 0)
         .expect("Failed to create discovery service");
 
     service.start(handler)

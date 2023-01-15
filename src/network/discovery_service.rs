@@ -2,7 +2,7 @@ use std::borrow::{Borrow, BorrowMut};
 use std::collections::{HashMap, HashSet};
 use std::fmt::format;
 use std::{io, time};
-use std::net::{IpAddr, SocketAddr, UdpSocket};
+use std::net::{IpAddr, Ipv4Addr, SocketAddr, UdpSocket};
 use std::thread::sleep;
 use std::time::Duration;
 use chrono;
@@ -13,6 +13,20 @@ const HANDSHAKE_MESSAGE: &'static str = "Hi There! 👋 \\^O^/";
 
 pub type ClientHandler = fn(&SocketAddr);
 
+fn get_local_ipv4_address(socket: &UdpSocket) -> Result<Ipv4Addr, io::Error> {
+    let ip = socket.local_addr()?.ip();
+    if let IpAddr::V4(ip) = ip {
+        Ok(ip)
+    } else {
+        Err(
+            io::Error::new(
+                io::ErrorKind::Other,
+                "Local address is not an IPv4 address.",
+            )
+        )
+    }
+}
+
 fn server_routine(
     server_socket: &UdpSocket,
     on_new_client: ClientHandler,
@@ -22,7 +36,8 @@ fn server_routine(
     loop {
         let (size, peer_addr) = match server_socket.recv_from(&mut buf) {
             Ok((x, y)) => (x, y),
-            Err(_) => {
+            Err(e) => {
+                println!("Error: {}", e);
                 continue;
             }
         };
@@ -54,12 +69,24 @@ fn server_routine(
 }
 
 
-fn client_routine(client_socket: &UdpSocket, server_port: i16) -> Result<(), String> {
+fn client_routine(client_socket: &UdpSocket, server_port: i16) -> Result<(), io::Error> {
     let handshake_string_bytes = HANDSHAKE_MESSAGE.as_bytes();
+    let local_ip = get_local_ipv4_address(client_socket)?;
+    let broadcast_address = IpAddr::V4(
+        Ipv4Addr::new(
+            local_ip.octets()[0] | 0b11111111,
+            local_ip.octets()[1] | 0b11111111,
+            local_ip.octets()[2] | 0b11111111,
+            local_ip.octets()[3] | 0b11111111,
+        )
+    );
+    let target_address = SocketAddr::new(broadcast_address, server_port as u16);
     loop {
-        let _ = client_socket.send_to(handshake_string_bytes,
-                                           format!("255.255.255.255:{}", server_port));
-        sleep(Duration::from_secs(6));
+        let _ = client_socket.send_to(
+            handshake_string_bytes,
+            target_address
+        );
+        sleep(Duration::from_secs(1));
     }
     Ok(())
 }
