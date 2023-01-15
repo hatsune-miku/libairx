@@ -90,37 +90,25 @@ impl DiscoveryService {
         })
     }
 
-    pub fn start(&mut self, client_handler: ClientHandler) -> Result<(), String> {
+    pub fn start(&mut self, client_handler: ClientHandler) -> Result<(), io::Error> {
         if self.is_started {
-            return Err(String::from("Already started."));
+            return Err(io::Error::new(io::ErrorKind::Other, "Already started"));
         }
         self.is_started = true;
 
         // Clone sockets.
-        let server_socket = match self.server_socket.try_clone() {
-            Ok(s) => s,
-            Err(_) => {
-                return Err(String::from("Failed to clone server socket."));
-            }
-        };
-        let client_socket = match self.client_socket.try_clone() {
-            Ok(s) => s,
-            Err(_) => {
-                return Err(String::from("Failed to clone client socket."));
-            }
-        };
+        let server_socket = self.server_socket.try_clone()?;
+        let client_socket = self.client_socket.try_clone()?;
 
         let server_port = self.server_port;
 
         self.thread_pool.execute(move || {
-            server_routine(&server_socket, client_handler)
-                .unwrap();
+            let _ = server_routine(&server_socket, client_handler);
         });
         self.thread_pool.execute(move || {
-            client_routine(&client_socket, server_port).unwrap();
+            let _ = client_routine(&client_socket, server_port);
         });
 
         Ok(())
     }
 }
-

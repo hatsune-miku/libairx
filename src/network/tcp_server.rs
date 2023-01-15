@@ -1,30 +1,18 @@
-use std::net::{TcpListener, TcpStream};
+use std::io;
+use std::net::{SocketAddr, TcpListener, TcpStream};
 
 pub struct TcpServer {
-    listener: Option<TcpListener>
+    listener: TcpListener
 }
 
 impl TcpServer {
-    pub fn new() -> Self {
-        Self { listener: None }
+    pub fn create_and_listen(host: &str, port: u16) -> Result<Self, io::Error> {
+        let addr = format!("{}:{}", host, port);
+        let listener = TcpListener::bind(addr)?;
+        Ok(Self { listener })
     }
 
-    pub fn listen(&mut self, host: &str, port: u16) -> Result<(), String> {
-        self.listener = match TcpListener::bind(
-            format!("{}:{}", host, port)) {
-            Ok(l) => Some(l),
-            Err(e) => return Err(e.to_string())
-        };
-        Ok(())
+    pub fn accept(&mut self) -> Result<(TcpStream, SocketAddr), io::Error> {
+        self.listener.accept()
     }
-
-    pub fn accept(&mut self) -> Result<TcpStream, String> {
-        let listener: &TcpListener = &self.listener.as_ref().unwrap();
-        match listener.accept() {
-            Ok((stream, _)) => Ok(stream),
-            Err(e) => Err(e.to_string())
-        }
-    }
-
 }
-

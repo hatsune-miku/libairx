@@ -1,4 +1,4 @@
-use std::usize;
+use std::{io, usize};
 use crate::network::socket;
 use crate::transmission::protocol::text_transmission;
 
@@ -16,15 +16,19 @@ impl<'a> TextTransmission<'a> {
 }
 
 impl text_transmission::SendText for TextTransmission<'_> {
-    fn send_text(&mut self, message: &str) -> Result<usize, String> {
-        // String is already utf8 encoded
+    fn send_text(&mut self, message: &str) -> Result<usize, io::Error> {
+        // Strings are already utf8 encoded.
         let bytes = message.as_bytes();
         let len = bytes.len();
 
         if len >= MESSAGE_MAX_SIZE {
-            return Err(format!(
-                "Message must no longer than {}.",
-                MESSAGE_MAX_SIZE));
+            return Err(io::Error::new(
+                io::ErrorKind::Other,
+                format!(
+                    "Message must no longer than {}.",
+                    MESSAGE_MAX_SIZE
+                ),
+            ));
         }
 
         let mut buf = vec![0u8; LENGTH_PRESERVE_SIZE + len];
@@ -40,7 +44,7 @@ impl text_transmission::SendText for TextTransmission<'_> {
 }
 
 impl text_transmission::ReadText for TextTransmission<'_> {
-    fn read_text(&mut self) -> Result<String, String> {
+    fn read_text(&mut self) -> Result<String, io::Error> {
         let mut size_buf: [u8; LENGTH_PRESERVE_SIZE]
             = [0u8; LENGTH_PRESERVE_SIZE];
 
@@ -53,8 +57,12 @@ impl text_transmission::ReadText for TextTransmission<'_> {
 
         match String::from_utf8(buf) {
             Ok(s) => Ok(s),
-            Err(e) =>
-                Err(format!("Invalid UTF-8 sequence: {}", e)),
+            Err(e) => Err(
+                io::Error::new(
+                    io::ErrorKind::Other,
+                    format!("Invalid UTF-8 sequence: {}", e),
+                )
+            ),
         }
     }
 }
