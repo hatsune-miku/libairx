@@ -1,14 +1,15 @@
+use crate::network::peer::Peer;
 use network_interface::{Addr, NetworkInterface, NetworkInterfaceConfig};
-use std::collections::HashSet;
 use std::io;
 use std::net::{IpAddr, Ipv4Addr, SocketAddr, UdpSocket};
 use std::sync::{Arc, Mutex};
 use std::thread::sleep;
 use std::time::Duration;
-use crate::network::peer::Peer;
 
 const BUF_SIZE: usize = 512;
 const THREAD_MAX: usize = 8;
+const DISCOVERY_RATE: u64 = 1;
+const DISCOVERY_DROP_RATE: u64 = 2;
 const HANDSHAKE_MESSAGE: &'static str = "Hi There! 👋 \\^O^/";
 const PEER_INITIAL_TTL: i8 = 3;
 
@@ -18,7 +19,7 @@ const PEER_INITIAL_TTL: i8 = 3;
 // that it's safe to mutate.
 // The peer list itself is a HashSet.
 // TODO: maybe better solution?
-pub type PeerSetType = Arc<Mutex<HashSet<Peer>>>;
+pub type PeerSetType = Arc<Mutex<Vec<Peer>>>;
 
 trait Broadcast {
     fn to_broadcast_addr(&self) -> Ipv4Addr;
@@ -60,18 +61,16 @@ fn get_local_ipv4_address(socket: &UdpSocket) -> Result<Ipv4Addr, io::Error> {
 }
 
 fn get_broadcast_addresses() -> Result<Vec<Ipv4Addr>, network_interface::Error> {
-    Ok(
-        NetworkInterface::show()?
-            .iter()
-            .map(|i| {
-                if let Some(addr) = i.addr {
-                    addr.to_broadcast_addr()
-                } else {
-                    Ipv4Addr::new(255, 255, 255, 255)
-                }
-            })
-            .collect::<Vec<Ipv4Addr>>()
-    )
+    Ok(NetworkInterface::show()?
+        .iter()
+        .map(|i| {
+            if let Some(addr) = i.addr {
+                addr.to_broadcast_addr()
+            } else {
+                Ipv4Addr::new(255, 255, 255, 255)
+            }
+        })
+        .collect::<Vec<Ipv4Addr>>())
 }
 
 fn server_routine(server_socket: &UdpSocket, peers: PeerSetType) -> Result<(), io::Error> {
@@ -106,12 +105,35 @@ fn server_routine(server_socket: &UdpSocket, peers: PeerSetType) -> Result<(), i
         }
 
         if let Ok(mut locked) = peers.lock() {
-            locked.insert(Peer::from(PEER_INITIAL_TTL, &peer_addr));
+            match locked.iter_mut().find(|peer| {
+                peer.host() == &peer_addr.ip().to_string() && peer.port() == peer_addr.port()
+            }) {
+                Some(peer) => {
+                    // Already in list.
+                    peer.increment_ttl();
+                }
+                None => {
+                    // Add to list.
+                    locked.push(Peer::from(PEER_INITIAL_TTL, &peer_addr));
+                }
+            }
         }
     }
 }
 
-fn client_routine(client_socket: &UdpSocket, server_port: i16) -> Result<(), io::Error> {
+fn server_associate_routine(peers: PeerSetType) -> Result<(), io::Error> {
+    loop {
+        if let Ok(mut locked) = peers.lock() {
+            for peer in locked.iter_mut() {
+                peer.decrement_ttl();
+            }
+            locked.retain(|peer| peer.is_alive());
+        }
+        sleep(Duration::from_secs(DISCOVERY_DROP_RATE));
+    }
+}
+
+fn client_routine(client_socket: &UdpSocket, server_port: u16) -> Result<(), io::Error> {
     let handshake_string_bytes = HANDSHAKE_MESSAGE.as_bytes();
     let broadcast_addresses = match get_broadcast_addresses() {
         Ok(x) => x,
@@ -137,26 +159,25 @@ fn client_routine(client_socket: &UdpSocket, server_port: i16) -> Result<(), io:
     ///
     loop {
         broadcast_addresses.iter().for_each(|addr| {
-            let broadcast_addr = SocketAddr::new(
-                IpAddr::from(addr.octets()), server_port as u16);
+            let broadcast_addr = SocketAddr::new(IpAddr::from(addr.octets()), server_port);
             let _ = client_socket.send_to(handshake_string_bytes, broadcast_addr);
         });
 
-        sleep(Duration::from_secs(1));
+        sleep(Duration::from_secs(DISCOVERY_RATE));
     }
 }
 
 pub struct DiscoveryService {
     server_socket: UdpSocket,
     client_socket: UdpSocket,
-    server_port: i16,
+    server_port: u16,
     thread_pool: threadpool::ThreadPool,
     is_started: bool,
     peer_list: PeerSetType,
 }
 
 impl DiscoveryService {
-    pub fn new(server_port: i16, client_port: i16) -> Result<Self, io::Error> {
+    pub fn new(server_port: u16, client_port: u16) -> Result<Self, io::Error> {
         let server_socket = UdpSocket::bind(format!("0.0.0.0:{}", server_port))?;
         let client_socket = UdpSocket::bind(format!("0.0.0.0:{}", client_port))?;
 
@@ -168,16 +189,14 @@ impl DiscoveryService {
             .num_threads(THREAD_MAX)
             .build();
 
-        Ok(
-            Self {
-                server_socket,
-                client_socket,
-                server_port,
-                thread_pool,
-                peer_list: Arc::new(Mutex::new(HashSet::new())),
-                is_started: false,
-            }
-        )
+        Ok(Self {
+            server_socket,
+            client_socket,
+            server_port,
+            thread_pool,
+            peer_list: Arc::new(Mutex::new(Vec::new())),
+            is_started: false,
+        })
     }
 
     pub fn start(&mut self) -> Result<(), io::Error> {
@@ -191,10 +210,14 @@ impl DiscoveryService {
         let client_socket = self.client_socket.try_clone()?;
 
         let server_port = self.server_port;
-        let peer_list = self.peer_list.clone();
+        let peer_list_ref_clone = self.peer_list.clone();
+        let peer_list_ref_clone1 = self.peer_list.clone();
 
         self.thread_pool.execute(move || {
-            let _ = server_routine(&server_socket, peer_list);
+            let _ = server_routine(&server_socket, peer_list_ref_clone);
+        });
+        self.thread_pool.execute(move || {
+            let _ = server_associate_routine(peer_list_ref_clone1);
         });
         self.thread_pool.execute(move || {
             let _ = client_routine(&client_socket, server_port);
@@ -203,16 +226,14 @@ impl DiscoveryService {
         Ok(())
     }
 
-    pub fn get_peer_list(&self) -> Result<HashSet<Peer>, io::Error> {
+    pub fn get_peer_list(&self) -> Result<Vec<Peer>, io::Error> {
         if let Ok(locked) = self.peer_list.lock() {
             Ok(locked.clone())
         } else {
-            Err(
-                io::Error::new(
-                    io::ErrorKind::Other,
-                    "Failed to lock peer list.",
-                )
-            )
+            Err(io::Error::new(
+                io::ErrorKind::Other,
+                "Failed to lock peer list.",
+            ))
         }
     }
 }

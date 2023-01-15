@@ -1,7 +1,9 @@
 use std::fmt;
 use std::net::SocketAddr;
 
-#[derive(Eq, Hash, PartialEq, Clone)]
+const MAX_TTL: i8 = 3;
+
+#[derive(Eq, Hash, Clone)]
 pub struct Peer {
     ttl: i8,
     host: String,
@@ -10,7 +12,17 @@ pub struct Peer {
 
 impl fmt::Display for Peer {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(f, "[Peer {}:{}]", self.host, self.port)
+        write!(f, "[{}:{} ttl={}]", self.host, self.port, self.ttl)
+    }
+}
+
+impl PartialEq for Peer {
+    fn eq(&self, other: &Self) -> bool {
+        self.host == other.host && self.port == other.port
+    }
+
+    fn ne(&self, other: &Self) -> bool {
+        !self.eq(other)
     }
 }
 
@@ -23,12 +35,14 @@ impl Peer {
         }
     }
 
-    pub fn is_dead(&self) -> bool {
-        self.ttl <= 0
+    pub fn is_alive(&self) -> bool {
+        self.ttl > 0
     }
 
     pub fn increment_ttl(&mut self) {
-        self.ttl += 1;
+        if self.ttl < MAX_TTL {
+            self.ttl += 1;
+        }
     }
 
     pub fn decrement_ttl(&mut self) {
