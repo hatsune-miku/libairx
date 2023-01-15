@@ -75,15 +75,6 @@ impl<'a> AirXService<'a> {
 
         loop {
             sleep(Duration::from_secs(1));
-            // Print peer list.
-            if let Ok(disc_srv_locked) = discover_srv_ref.lock() {
-                if let Ok(list) = disc_srv_locked.get_peer_list() {
-                    println!("Peer list:");
-                    list.iter().for_each(|peer| {
-                        println!("  {}", peer);
-                    });
-                }
-            }
         }
     }
 }
