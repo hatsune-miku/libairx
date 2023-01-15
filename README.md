@@ -3,9 +3,6 @@
 ### Features
 
 - LAN Discovery
-
-### Almost Done
-
 - Text sync over LAN (UDP)
 
 ### WIP
