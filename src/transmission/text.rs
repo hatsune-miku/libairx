@@ -2,7 +2,7 @@ use crate::network::socket;
 use crate::transmission::protocol::text_transmission;
 use std::{io, usize};
 
-pub const LENGTH_PRESERVE_SIZE: usize = 8;
+pub const LENGTH_PRESERVE_SIZE: usize = 16;
 pub const MESSAGE_MAX_SIZE: usize = (2 << (LENGTH_PRESERVE_SIZE - 1)) - 1;
 
 pub struct TextTransmission<'a> {
@@ -30,7 +30,7 @@ impl text_transmission::SendText for TextTransmission<'_> {
 
         let mut buf = vec![0u8; LENGTH_PRESERVE_SIZE + len];
 
-        // First 8 bits for packet size.
+        // First 16 bits for packet size.
         buf[0..LENGTH_PRESERVE_SIZE].copy_from_slice(len.to_ne_bytes().as_slice());
         buf[LENGTH_PRESERVE_SIZE..].copy_from_slice(bytes);
 
