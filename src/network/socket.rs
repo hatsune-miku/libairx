@@ -13,10 +13,13 @@ impl From<TcpStream> for Socket {
 }
 
 impl Socket {
-    pub fn connect(&mut self, host: &str, port: u16) -> Result<(), io::Error> {
+    pub fn connect(host: &str, port: u16) -> Result<Self, io::Error> {
         let addr = format!("{}:{}", host, port);
-        self.stream = TcpStream::connect(addr)?;
-        Ok(())
+        Ok(
+            Self {
+                stream: TcpStream::connect(addr)?,
+            }
+        )
     }
 
     pub fn send(&mut self, data: &[u8]) -> Result<usize, io::Error> {

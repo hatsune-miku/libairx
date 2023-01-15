@@ -5,10 +5,12 @@ use std::net::{IpAddr, Ipv4Addr, SocketAddr, UdpSocket};
 use std::sync::{Arc, Mutex};
 use std::thread::sleep;
 use std::time::Duration;
+use crate::network::peer::Peer;
 
 const BUF_SIZE: usize = 512;
 const THREAD_MAX: usize = 8;
 const HANDSHAKE_MESSAGE: &'static str = "Hi There! 👋 \\^O^/";
+const PEER_INITIAL_TTL: i8 = 3;
 
 // Arc (Atomically Reference Counted) convinces the compiler
 // that it's safe to share between threads.
@@ -16,7 +18,7 @@ const HANDSHAKE_MESSAGE: &'static str = "Hi There! 👋 \\^O^/";
 // that it's safe to mutate.
 // The peer list itself is a HashSet.
 // TODO: maybe better solution?
-type PeerSetType = Arc<Mutex<HashSet<SocketAddr>>>;
+pub type PeerSetType = Arc<Mutex<HashSet<Peer>>>;
 
 trait Broadcast {
     fn to_broadcast_addr(&self) -> Ipv4Addr;
@@ -104,7 +106,7 @@ fn server_routine(server_socket: &UdpSocket, peers: PeerSetType) -> Result<(), i
         }
 
         if let Ok(mut locked) = peers.lock() {
-            locked.insert(peer_addr.clone());
+            locked.insert(Peer::from(PEER_INITIAL_TTL, &peer_addr));
         }
     }
 }
@@ -201,7 +203,7 @@ impl DiscoveryService {
         Ok(())
     }
 
-    pub fn get_peer_list(&self) -> Result<HashSet<SocketAddr>, io::Error> {
+    pub fn get_peer_list(&self) -> Result<HashSet<Peer>, io::Error> {
         if let Ok(locked) = self.peer_list.lock() {
             Ok(locked.clone())
         } else {
