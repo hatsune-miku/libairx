@@ -1,6 +1,6 @@
 use std::io;
 use std::io::{Read, Write};
-use std::net::{IpAddr, TcpStream};
+use std::net::TcpStream;
 
 pub struct Socket {
     stream: TcpStream,

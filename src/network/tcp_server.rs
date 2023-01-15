@@ -2,7 +2,7 @@ use std::io;
 use std::net::{SocketAddr, TcpListener, TcpStream};
 
 pub struct TcpServer {
-    listener: TcpListener
+    listener: TcpListener,
 }
 
 impl TcpServer {

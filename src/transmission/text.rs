@@ -1,6 +1,6 @@
-use std::{io, usize};
 use crate::network::socket;
 use crate::transmission::protocol::text_transmission;
+use std::{io, usize};
 
 pub const LENGTH_PRESERVE_SIZE: usize = 8;
 pub const MESSAGE_MAX_SIZE: usize = (2 << (LENGTH_PRESERVE_SIZE - 1)) - 1;
@@ -24,20 +24,15 @@ impl text_transmission::SendText for TextTransmission<'_> {
         if len >= MESSAGE_MAX_SIZE {
             return Err(io::Error::new(
                 io::ErrorKind::Other,
-                format!(
-                    "Message must no longer than {}.",
-                    MESSAGE_MAX_SIZE
-                ),
+                format!("Message must no longer than {}.", MESSAGE_MAX_SIZE),
             ));
         }
 
         let mut buf = vec![0u8; LENGTH_PRESERVE_SIZE + len];
 
         // First 8 bits for packet size.
-        buf[0..LENGTH_PRESERVE_SIZE]
-            .copy_from_slice(len.to_ne_bytes().as_slice());
-        buf[LENGTH_PRESERVE_SIZE..]
-            .copy_from_slice(bytes);
+        buf[0..LENGTH_PRESERVE_SIZE].copy_from_slice(len.to_ne_bytes().as_slice());
+        buf[LENGTH_PRESERVE_SIZE..].copy_from_slice(bytes);
 
         self.socket.send(&buf)
     }
@@ -45,8 +40,7 @@ impl text_transmission::SendText for TextTransmission<'_> {
 
 impl text_transmission::ReadText for TextTransmission<'_> {
     fn read_text(&mut self) -> Result<String, io::Error> {
-        let mut size_buf: [u8; LENGTH_PRESERVE_SIZE]
-            = [0u8; LENGTH_PRESERVE_SIZE];
+        let mut size_buf: [u8; LENGTH_PRESERVE_SIZE] = [0u8; LENGTH_PRESERVE_SIZE];
 
         self.socket.read_exact(&mut size_buf)?;
 
@@ -57,12 +51,10 @@ impl text_transmission::ReadText for TextTransmission<'_> {
 
         match String::from_utf8(buf) {
             Ok(s) => Ok(s),
-            Err(e) => Err(
-                io::Error::new(
-                    io::ErrorKind::Other,
-                    format!("Invalid UTF-8 sequence: {}", e),
-                )
-            ),
+            Err(e) => Err(io::Error::new(
+                io::ErrorKind::Other,
+                format!("Invalid UTF-8 sequence: {}", e),
+            )),
         }
     }
 }
