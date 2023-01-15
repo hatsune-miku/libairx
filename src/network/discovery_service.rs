@@ -7,7 +7,7 @@ use std::ops::Add;
 use std::thread::sleep;
 use std::time::Duration;
 use chrono;
-use interfaces::{Address, Interface, InterfaceFlags};
+use network_interface::{Addr, NetworkInterface, NetworkInterfaceConfig};
 
 const BUF_SIZE: usize = 512;
 const THREAD_MAX: usize = 8;
@@ -33,15 +33,15 @@ impl ToIpV4Addr for SocketAddr {
     }
 }
 
-impl Broadcast for Address {
+impl Broadcast for Addr {
     fn to_broadcast_address(&self) -> Ipv4Addr {
         let address_default = Ipv4Addr::new(255, 255, 255, 255);
-        let ipv4_address = match self.addr {
-            Some(x) => x.to_ipv4_addr(),
+        let ipv4_address = match self.ip() {
+            IpAddr::V4(x) => x,
             _ => address_default,
         };
-        let mask_address = match self.mask {
-            Some(x) => x.to_ipv4_addr(),
+        let mask_address = match self.netmask() {
+            Some(IpAddr::V4(x)) => x,
             _ => address_default,
         };
 
@@ -70,14 +70,11 @@ fn get_local_ipv4_address(socket: &UdpSocket) -> Result<Ipv4Addr, io::Error> {
     }
 }
 
-fn get_broadcast_addresses() -> Result<Vec<Ipv4Addr>, interfaces::InterfacesError> {
+fn get_broadcast_addresses() -> Result<Vec<Ipv4Addr>, network_interface::Error> {
     Ok(
-        Interface::get_all()?
+        NetworkInterface::show()?
             .iter()
-            .filter(|i| i.flags.contains(InterfaceFlags::IFF_BROADCAST))
-            .map(|i| i.addresses.clone())
-            .flatten()
-            .map(|a| a.to_broadcast_address())
+            .map(|i| i.addr.unwrap().to_broadcast_address())
             .collect::<Vec<Ipv4Addr>>()
     )
 }
