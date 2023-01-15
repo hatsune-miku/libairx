@@ -53,7 +53,7 @@ fn server_routine() -> Result<(), io::Error> {
             if (!s.starts_with("SYNC:")) {
                 continue;
             }
-            let text = s.split(":").collect::<Vec<&str>>()[1..].join("");
+            let text = s.split(":").collect::<Vec<&str>>()[1..].join(":");
             println!("Received clipboard from {}: {}", socket_addr.to_string(), text);
             if let Ok(mut clip) = arboard::Clipboard::new() {
                 let _ = clip.set_text(text);
