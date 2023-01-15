@@ -9,6 +9,7 @@ use clipboard_master::{CallbackResult, ClipboardHandler};
 use crate::network::peer::Peer;
 use crate::network::socket::Socket;
 use crate::network::text_service;
+use crate::r#unsafe::global::GLOBAL;
 use crate::transmission::protocol::text_transmission::{ReadText};
 
 pub type DiscoveryServiceType = Arc<Mutex<discovery_service::DiscoveryService>>;
@@ -20,6 +21,7 @@ struct ClipboardBridge {
     pub text_service: TextServiceType,
     pub last_text: String,
     pub listen_port: u16,
+    ignore_next_text: bool,
 }
 
 impl ClipboardHandler for ClipboardBridge {
@@ -32,8 +34,16 @@ impl ClipboardHandler for ClipboardBridge {
         if text == self.last_text {
             return CallbackResult::Next;
         }
+
         self.last_text = text.clone();
         println!("Clipboard changed: {}", text);
+
+        unsafe {
+            if GLOBAL.skip_next_send {
+                GLOBAL.skip_next_send = false;
+                return CallbackResult::Next;
+            }
+        }
 
         if let Ok(disc_srv_locked) = self.discovery_service.lock() {
             if let Ok(list) = disc_srv_locked.get_peer_list() {
@@ -74,6 +84,7 @@ impl ClipboardBridge {
                 clipboard: arboard::Clipboard::new()?,
                 last_text: String::new(),
                 listen_port: text_service_listen_port,
+                ignore_next_text: false,
                 discovery_service,
                 text_service,
             }

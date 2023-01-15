@@ -2,6 +2,7 @@ mod network;
 mod transmission;
 mod util;
 mod service;
+mod r#unsafe;
 
 #[cfg(test)]
 mod tests {

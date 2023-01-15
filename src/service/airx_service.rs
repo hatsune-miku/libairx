@@ -6,6 +6,7 @@ use crate::network::discovery_service;
 use std::thread::sleep;
 use std::time::Duration;
 use clipboard_master::{CallbackResult, ClipboardHandler};
+use crate::r#unsafe::global::GLOBAL;
 use crate::network::peer::Peer;
 use crate::network::socket::Socket;
 use crate::network::tcp_server::TcpServer;
@@ -17,6 +18,11 @@ use crate::transmission::protocol::text_transmission::{ReadText};
 fn on_text_received(text: String, _: &SocketAddr) {
     if let Ok(mut clip) = arboard::Clipboard::new() {
         let _ = clip.set_text(text);
+
+        // Should skip next broadcast.
+        unsafe {
+            GLOBAL.skip_next_send = true;
+        }
     }
 }
 
