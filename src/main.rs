@@ -18,5 +18,9 @@ fn main() {
     service.start(handler)
         .expect("Failed to start service.");
 
-    sleep(Duration::from_secs(64));
+    println!("Discovery service started.");
+
+    loop {
+        sleep(Duration::from_secs(1));
+    }
 }

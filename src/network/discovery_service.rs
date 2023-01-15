@@ -1,10 +1,11 @@
 use std::borrow::{Borrow, BorrowMut};
 use std::collections::{HashMap, HashSet};
 use std::fmt::format;
-use std::io;
+use std::{io, time};
 use std::net::{IpAddr, SocketAddr, UdpSocket};
 use std::thread::sleep;
 use std::time::Duration;
+use chrono;
 
 const BUF_SIZE: usize = 512;
 const THREAD_MAX: usize = 8;
@@ -19,12 +20,19 @@ fn server_routine(
     let mut buf: [u8; BUF_SIZE] = [0u8; BUF_SIZE];
 
     loop {
-        let (_, peer_addr) = match server_socket.recv_from(&mut buf) {
+        let (size, peer_addr) = match server_socket.recv_from(&mut buf) {
             Ok((x, y)) => (x, y),
             Err(_) => {
                 continue;
             }
         };
+
+        println!(
+            "{} - Received {} bytes from {}: {}",
+            chrono::Local::now().format("%H:%M:%S").to_string(),
+            size, peer_addr,
+            String::from_utf8(Vec::from(buf)).unwrap()
+        );
 
         // From self?
         if peer_addr.ip() == server_socket.local_addr()?.ip() {
