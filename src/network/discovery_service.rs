@@ -95,7 +95,6 @@ pub struct DiscoveryService {
     server_socket: UdpSocket,
     client_socket: UdpSocket,
     server_port: i16,
-    client_port: i16,
     thread_pool: threadpool::ThreadPool,
     is_started: bool,
 }
@@ -109,6 +108,7 @@ impl DiscoveryService {
             format!("0.0.0.0:{}", client_port))?;
 
         client_socket.set_broadcast(true)?;
+        server_socket.set_broadcast(true)?;
 
         let thread_pool = threadpool::Builder::new()
             .thread_name(String::from("DiscoveryDispatch"))
@@ -119,7 +119,6 @@ impl DiscoveryService {
             server_socket,
             client_socket,
             server_port,
-            client_port,
             thread_pool,
             is_started: false,
         })
