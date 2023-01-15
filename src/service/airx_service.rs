@@ -6,7 +6,7 @@ use crate::network::discovery_service;
 use std::thread::sleep;
 use std::time::Duration;
 use clipboard_master::{CallbackResult, ClipboardHandler};
-use crate::r#unsafe::global::GLOBAL;
+use crate::hack::global::GLOBAL;
 use crate::network::peer::Peer;
 use crate::network::socket::Socket;
 use crate::network::tcp_server::TcpServer;

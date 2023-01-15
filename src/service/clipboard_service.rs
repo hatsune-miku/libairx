@@ -9,7 +9,7 @@ use clipboard_master::{CallbackResult, ClipboardHandler};
 use crate::network::peer::Peer;
 use crate::network::socket::Socket;
 use crate::network::text_service;
-use crate::r#unsafe::global::GLOBAL;
+use crate::hack::global::GLOBAL;
 use crate::transmission::protocol::text_transmission::{ReadText};
 
 pub type DiscoveryServiceType = Arc<Mutex<discovery_service::DiscoveryService>>;
