@@ -65,7 +65,10 @@ fn server_routine() -> Result<(), io::Error> {
 
 impl ClipboardHandler for Handler {
     fn on_clipboard_change(&mut self) -> CallbackResult {
-        let text = self.clipboard.get_text().unwrap();
+        let text = match self.clipboard.get_text() {
+            Ok(s) => s,
+            Err(_) => return CallbackResult::Next,
+        };
         if text == self.last_text {
             return CallbackResult::Next;
         }
