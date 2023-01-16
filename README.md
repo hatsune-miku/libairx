@@ -11,6 +11,26 @@
 - File sharing over LAN (TCP)
 - File sharing over Internet (Upload & share link)
 
+### Usage
+
+- Normal startup
+
+```shell
+$ ./airx
+```
+
+- Verbose mode that prints peers list every second
+
+```shell
+$ ./airx --verbose
+```
+
+or
+
+```shell
+$ cargo run -- --verbose
+```
+
 ### Credits
 
 | Contributor | #         |
