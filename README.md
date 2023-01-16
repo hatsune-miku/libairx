@@ -3,11 +3,10 @@
 ### Features
 
 - LAN Discovery
-- Text sync over LAN (UDP)
+- Text sync over LAN (TCP)
 
 ### WIP
 
-- Text sync over LAN (TCP)
 - Text sync over Internet (TCP)
 - File sharing over LAN (TCP)
 - File sharing over Internet (Upload & share link)
