@@ -1,7 +1,9 @@
+use std::arch::is_aarch64_feature_detected;
 use crate::network::peer::Peer;
 use network_interface::{Addr, NetworkInterface, NetworkInterfaceConfig};
 use std::io;
 use std::net::{IpAddr, Ipv4Addr, SocketAddr, UdpSocket};
+use std::ptr::addr_of;
 use std::sync::{Arc, Mutex};
 use std::thread::sleep;
 use std::time::Duration;
@@ -25,7 +27,22 @@ trait Broadcast {
     fn to_broadcast_addr(&self) -> Ipv4Addr;
 }
 
+trait ToIpV4Addr {
+    fn to_ipv4_addr(&self) -> Option<Ipv4Addr>;
+}
+
+impl ToIpV4Addr for IpAddr {
+    fn to_ipv4_addr(&self) -> Option<Ipv4Addr> {
+        match self {
+            IpAddr::V4(ip) => Some(*ip),
+            IpAddr::V6(_) => None,
+        }
+    }
+}
+
 impl Broadcast for Addr {
+    /// Fallback method that calculates
+    /// broadcast address from IP address and netmask.
     fn to_broadcast_addr(&self) -> Ipv4Addr {
         let addr_fallback = Ipv4Addr::new(255, 255, 255, 255);
         let ipv4_addr = match self.ip() {
@@ -61,13 +78,19 @@ fn get_local_ipv4_address(socket: &UdpSocket) -> Result<Ipv4Addr, io::Error> {
 }
 
 fn get_broadcast_addresses() -> Result<Vec<Ipv4Addr>, network_interface::Error> {
+    let fallback = Ipv4Addr::new(255, 255, 255, 255);
     Ok(NetworkInterface::show()?
         .iter()
         .map(|i| {
-            if let Some(addr) = i.addr {
-                addr.to_broadcast_addr()
-            } else {
-                Ipv4Addr::new(255, 255, 255, 255)
+            match i.addr {
+                Some(addr) => match addr.broadcast() {
+                    Some(b) => match b.to_ipv4_addr() {
+                        Some(ip) => ip,
+                        None => fallback,
+                    },
+                    None => addr.to_broadcast_addr(),
+                },
+                None => fallback,
             }
         })
         .collect::<Vec<Ipv4Addr>>())

@@ -1,4 +1,4 @@
-use std::io;
+use std::{io};
 use std::io::Error;
 use std::net::SocketAddr;
 use std::sync::{Arc, Mutex};
@@ -58,7 +58,7 @@ impl<'a> AirXService<'a> {
             text_service_listen_port,
         }
     }
-    pub fn run(&self) {
+    pub fn run(&self, args: Vec<String>) {
         // Create services.
         let mut discovery_service = discovery_service::DiscoveryService::new(
             self.discovery_service_server_port, self.discovery_service_client_port)
@@ -81,6 +81,19 @@ impl<'a> AirXService<'a> {
 
         loop {
             sleep(Duration::from_secs(1));
-        }
-    }
+
+            // print peers.
+            if args.contains(&String::from("--verbose")) {
+                if let Ok(locked) = discover_srv_ref.lock() {
+                    if let Ok(peer_list) = locked.get_peer_list() {
+                        println!(
+                            "[{}] Peers: {}",
+                            chrono::Local::now().format("%Y-%m-%d %H:%M:%S"),
+                            peer_list.iter().map(|p| p.to_string()).collect::<Vec<String>>().join(", ")
+                        );
+                    }
+                }
+            } // if
+        } // loop
+    } // run
 }
