@@ -89,7 +89,10 @@ impl<'a> AirXService<'a> {
                         println!(
                             "[{}] Peers: {}",
                             chrono::Local::now().format("%Y-%m-%d %H:%M:%S"),
-                            peer_list.iter().map(|p| p.to_string()).collect::<Vec<String>>().join(", ")
+                            peer_list.iter()
+                                .map(|p| p.to_string())
+                                .collect::<Vec<String>>()
+                                .join(", ")
                         );
                     }
                 }
