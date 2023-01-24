@@ -37,6 +37,7 @@ impl Socket {
         self.stream.read_exact(buf)
     }
 
+    #[allow(dead_code)]
     pub fn read(&mut self, buf: &mut [u8]) -> Result<usize, io::Error> {
         self.stream.read(buf)
     }

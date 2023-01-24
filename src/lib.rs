@@ -1,8 +1,8 @@
+mod hack;
 mod network;
+mod service;
 mod transmission;
 mod util;
-mod service;
-mod hack;
 
 #[cfg(test)]
 mod tests {
