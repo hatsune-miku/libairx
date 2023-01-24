@@ -1,11 +1,11 @@
+mod hack;
 mod network;
+mod service;
 mod transmission;
 mod util;
-mod service;
-mod hack;
 
-use std::env;
 use service::airx_service;
+use std::env;
 
 fn main() {
     let airx = airx_service::AirXService::default();

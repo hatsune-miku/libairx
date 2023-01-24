@@ -1,16 +1,10 @@
-use std::io;
-use std::io::Error;
-use std::net::SocketAddr;
-use std::sync::{Arc, Mutex};
-use crate::network::discovery_service;
-use std::thread::sleep;
-use std::time::Duration;
-use clipboard_master::{CallbackResult, ClipboardHandler};
-use crate::network::peer::Peer;
-use crate::network::socket::Socket;
-use crate::network::text_service;
 use crate::hack::global::GLOBAL;
-use crate::transmission::protocol::text_transmission::{ReadText};
+use crate::network::discovery_service;
+use crate::network::text_service;
+use clipboard_master::{CallbackResult, ClipboardHandler};
+use std::io::Error;
+use std::sync::{Arc, Mutex};
+use std::time::Duration;
 
 pub type DiscoveryServiceType = Arc<Mutex<discovery_service::DiscoveryService>>;
 pub type TextServiceType = Arc<Mutex<text_service::TextService>>;
@@ -21,7 +15,6 @@ struct ClipboardBridge {
     pub text_service: TextServiceType,
     pub last_text: String,
     pub listen_port: u16,
-    ignore_next_text: bool,
 }
 
 impl ClipboardHandler for ClipboardBridge {
@@ -79,20 +72,17 @@ impl ClipboardBridge {
         text_service: TextServiceType,
         text_service_listen_port: u16,
     ) -> Result<Self, arboard::Error> {
-        Ok(
-            Self {
-                clipboard: arboard::Clipboard::new()?,
-                last_text: String::new(),
-                listen_port: text_service_listen_port,
-                ignore_next_text: false,
-                discovery_service,
-                text_service,
-            }
-        )
+        Ok(Self {
+            clipboard: arboard::Clipboard::new()?,
+            last_text: String::new(),
+            listen_port: text_service_listen_port,
+            discovery_service,
+            text_service,
+        })
     }
 }
 
-pub struct ClipboardService {}
+pub struct ClipboardService;
 
 impl ClipboardService {
     pub fn start(
@@ -101,11 +91,11 @@ impl ClipboardService {
         text_service_listen_port: u16,
     ) {
         std::thread::spawn(move || {
-            let bridge = ClipboardBridge::new(discovery_service, text_service, text_service_listen_port)
-                .expect("Failed to create clipboard bridge");
+            let bridge =
+                ClipboardBridge::new(discovery_service, text_service, text_service_listen_port)
+                    .expect("Failed to create clipboard bridge");
             let mut master = clipboard_master::Master::new(bridge);
             master.run().expect("Failed to run clipboard master");
         });
     }
 }
-

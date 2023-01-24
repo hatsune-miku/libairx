@@ -1,9 +1,7 @@
-use std::arch::is_aarch64_feature_detected;
 use crate::network::peer::Peer;
 use network_interface::{Addr, NetworkInterface, NetworkInterfaceConfig};
 use std::io;
 use std::net::{IpAddr, Ipv4Addr, SocketAddr, UdpSocket};
-use std::ptr::addr_of;
 use std::sync::{Arc, Mutex};
 use std::thread::sleep;
 use std::time::Duration;
@@ -65,33 +63,19 @@ impl Broadcast for Addr {
     }
 }
 
-fn get_local_ipv4_address(socket: &UdpSocket) -> Result<Ipv4Addr, io::Error> {
-    let ip = socket.local_addr()?.ip();
-    if let IpAddr::V4(ip) = ip {
-        Ok(ip)
-    } else {
-        Err(io::Error::new(
-            io::ErrorKind::Other,
-            "Local address is not an IPv4 address.",
-        ))
-    }
-}
-
 fn get_broadcast_addresses() -> Result<Vec<Ipv4Addr>, network_interface::Error> {
     let fallback = Ipv4Addr::new(255, 255, 255, 255);
     Ok(NetworkInterface::show()?
         .iter()
-        .map(|i| {
-            match i.addr {
-                Some(addr) => match addr.broadcast() {
-                    Some(b) => match b.to_ipv4_addr() {
-                        Some(ip) => ip,
-                        None => fallback,
-                    },
-                    None => addr.to_broadcast_addr(),
+        .map(|i| match i.addr {
+            Some(addr) => match addr.broadcast() {
+                Some(b) => match b.to_ipv4_addr() {
+                    Some(ip) => ip,
+                    None => fallback,
                 },
-                None => fallback,
-            }
+                None => addr.to_broadcast_addr(),
+            },
+            None => fallback,
         })
         .collect::<Vec<Ipv4Addr>>())
 }
@@ -166,20 +150,34 @@ fn client_routine(client_socket: &UdpSocket, server_port: u16) -> Result<(), io:
         }
     };
 
-    ///
-    ///     For current network interface only:
-    ///
-    ///     let local_ip = get_local_ipv4_address(client_socket)?;
-    ///     let broadcast_address = IpAddr::V4(
-    ///         Ipv4Addr::new(
-    ///             local_ip.octets()[0] | 0b11111111,
-    ///             local_ip.octets()[1] | 0b11111111,
-    ///             local_ip.octets()[2] | 0b11111111,
-    ///             local_ip.octets()[3] | 0b11111111,
-    ///         )
-    ///     );
-    ///     let target_address = SocketAddr::new(broadcast_address, server_port as u16);
-    ///
+    //
+    //     ==================================
+    //     For current network interface only
+    //     ==================================
+    //
+    //      fn get_local_ipv4_address(socket: &UdpSocket) -> Result<Ipv4Addr, io::Error> {
+    //          let ip = socket.local_addr()?.ip();
+    //          if let IpAddr::V4(ip) = ip {
+    //              Ok(ip)
+    //          } else {
+    //              Err(io::Error::new(
+    //                  io::ErrorKind::Other,
+    //                  "Local address is not an IPv4 address.",
+    //              ))
+    //          }
+    //      }
+    //
+    //     let local_ip = get_local_ipv4_address(client_socket)?;
+    //     let broadcast_address = IpAddr::V4(
+    //         Ipv4Addr::new(
+    //             local_ip.octets()[0] | 0b11111111,
+    //             local_ip.octets()[1] | 0b11111111,
+    //             local_ip.octets()[2] | 0b11111111,
+    //             local_ip.octets()[3] | 0b11111111,
+    //         )
+    //     );
+    //     let target_address = SocketAddr::new(broadcast_address, server_port as u16);
+    //
     loop {
         broadcast_addresses.iter().for_each(|addr| {
             let broadcast_addr = SocketAddr::new(IpAddr::from(addr.octets()), server_port);
