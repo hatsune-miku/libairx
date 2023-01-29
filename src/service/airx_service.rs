@@ -51,20 +51,6 @@ impl<'a> AirXService<'a> {
         })
     } // run
 
-    pub fn run_discovery_service_sync(&self) -> Result<(), io::Error> {
-        match self.discovery_service.lock() {
-            Ok(mut locked) => locked.run(),
-            Err(_) => Err(io::Error::new(io::ErrorKind::Other, "Failed to lock discovery service.")),
-        }
-    }
-
-    pub fn run_text_service_sync(&self) -> Result<(), io::Error> {
-        match self.text_service.lock() {
-            Ok(locked) => locked.run(),
-            Err(_) => Err(io::Error::new(io::ErrorKind::Other, "Failed to lock text service.")),
-        }
-    }
-
     pub fn text_service(&self) -> SharedMutable<TextService> {
         self.text_service.clone()
     }

@@ -55,7 +55,7 @@ impl Broadcast for Addr {
     }
 }
 
-fn get_broadcast_addresses() -> Result<Vec<Ipv4Addr>, network_interface::Error> {
+fn get_broadcast_addresses() -> Result<HashSet<Ipv4Addr>, network_interface::Error> {
     let fallback = Ipv4Addr::new(255, 255, 255, 255);
     Ok(NetworkInterface::show()?
         .iter()
@@ -70,27 +70,21 @@ fn get_broadcast_addresses() -> Result<Vec<Ipv4Addr>, network_interface::Error> 
             None => fallback,
         })
         .filter(|ip| !ip.is_loopback())
-        .collect::<Vec<Ipv4Addr>>())
+        .collect::<HashSet<Ipv4Addr>>())
 }
 
 pub struct DiscoveryService {
-    server_socket: UdpSocket,
     server_port: u16,
     client_port: u16,
-    is_started: bool,
-    peer_set: PeerSetType,
+    peer_set_ptr: PeerSetType,
 }
 
 impl DiscoveryService {
     pub fn new(server_port: u16, client_port: u16) -> Result<Self, io::Error> {
-        let server_socket = Self::create_broadcast_socket(server_port)?;
-
         Ok(Self {
-            server_socket,
             server_port,
             client_port,
-            peer_set: SharedMutable::new(HashSet::new()),
-            is_started: false,
+            peer_set_ptr: SharedMutable::new(HashSet::new()),
         })
     }
 
@@ -102,57 +96,6 @@ impl DiscoveryService {
             }
             Err(e) => Err(e),
         }
-    }
-
-    pub fn reconnect(&mut self, server_port: u16) -> Result<(), io::Error> {
-        self.server_socket = Self::create_broadcast_socket(server_port)?;
-        Ok(())
-    }
-
-
-    pub fn run(&mut self) -> Result<(), io::Error> {
-        if self.is_started {
-            return Err(io::Error::new(io::ErrorKind::Other, "Already started"));
-        }
-        self.is_started = true;
-
-        loop {
-            // Clone sockets.
-            let server_socket = &self.server_socket;
-
-            let mut buf: [u8; BUF_SIZE] = [0u8; BUF_SIZE];
-            let (size, peer_addr) = match server_socket.recv_from(&mut buf) {
-                Ok((x, y)) => (x, y),
-                Err(_) => {
-                    break;
-                }
-            };
-
-            // From self?
-            if peer_addr.ip() == server_socket.local_addr()?.ip() {
-                continue;
-            }
-
-            // Not handshake message?
-            let message = String::from_utf8(Vec::from(&buf[..size]));
-            match message {
-                Ok(x) => {
-                    if &x != HANDSHAKE_MESSAGE {
-                        continue;
-                    }
-                }
-                Err(e) => {
-                    // Client sent invalid message.
-                    continue;
-                }
-            }
-
-            if let Ok(mut locked) = self.peer_set.lock() {
-                locked.insert(Peer::from(&peer_addr));
-            }
-        }
-
-        Ok(())
     }
 
     pub fn broadcast_discovery_request(&self) -> Result<(), io::Error> {
@@ -197,7 +140,7 @@ impl DiscoveryService {
         //     let target_address = SocketAddr::new(broadcast_address, server_port as u16);
         //
 
-        if let Ok(mut locked) = self.peer_set.lock() {
+        if let Ok(mut locked) = self.peer_set_ptr.lock() {
             locked.clear();
         }
         for addr in broadcast_addresses.iter() {
@@ -210,14 +153,48 @@ impl DiscoveryService {
         Ok(())
     }
 
-    pub fn get_peer_list(&self) -> Result<HashSet<Peer>, io::Error> {
-        if let Ok(locked) = self.peer_set.lock() {
-            Ok(locked.clone())
-        } else {
-            Err(io::Error::new(
-                io::ErrorKind::Other,
-                "Failed to lock peer list.",
-            ))
+    pub fn peers(&self) -> PeerSetType {
+        self.peer_set_ptr.clone()
+    }
+
+
+    pub fn run(server_port: u16, peer_set: PeerSetType) -> Result<(), io::Error> {
+        let server_socket = Self::create_broadcast_socket(server_port)?;
+
+        loop {
+            // Clone sockets.
+            let mut buf: [u8; BUF_SIZE] = [0u8; BUF_SIZE];
+            let (size, peer_addr) = match server_socket.recv_from(&mut buf) {
+                Ok((x, y)) => (x, y),
+                Err(_) => {
+                    break;
+                }
+            };
+
+            // From self?
+            if peer_addr.ip() == server_socket.local_addr()?.ip() {
+                continue;
+            }
+
+            // Not handshake message?
+            let message = String::from_utf8(Vec::from(&buf[..size]));
+            match message {
+                Ok(x) => {
+                    if &x != HANDSHAKE_MESSAGE {
+                        continue;
+                    }
+                }
+                Err(_) => {
+                    // Client sent invalid message.
+                    continue;
+                }
+            }
+
+            if let Ok(mut locked) = peer_set.lock() {
+                locked.insert(Peer::from(&peer_addr));
+            }
         }
+
+        Ok(())
     }
 }
