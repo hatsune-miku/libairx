@@ -1,5 +1,4 @@
 use std::io;
-use crate::hack::global::GLOBAL;
 use crate::network::discovery_service;
 use std::net::SocketAddr;
 use std::thread::sleep;
@@ -11,10 +10,7 @@ fn on_text_received(text: String, _: &SocketAddr) {
     if let Ok(mut clip) = arboard::Clipboard::new() {
         let _ = clip.set_text(text);
 
-        // Should skip next broadcast.
-        unsafe {
-            GLOBAL.skip_next_send = true;
-        }
+        // TODO: Should skip next broadcast here.
     }
 }
 
