@@ -1,3 +1,4 @@
+use std::panic::{RefUnwindSafe, UnwindSafe};
 use std::sync::{Arc, LockResult, Mutex, MutexGuard};
 
 ///
@@ -15,6 +16,14 @@ impl<T> Clone for SharedMutable<T> {
     }
 }
 
+
+unsafe impl<T> Send for SharedMutable<T> {}
+
+unsafe impl<T> Sync for SharedMutable<T> {}
+
+impl<T: RefUnwindSafe + Sized> UnwindSafe for SharedMutable<T> {}
+
+
 impl<T> SharedMutable<T> {
     pub fn new(value: T) -> Self {
         SharedMutable {
@@ -25,6 +34,7 @@ impl<T> SharedMutable<T> {
     ///
     /// Blocks until the lock is acquired.
     ///
+    #[allow(dead_code)]
     pub fn lock_and_get(&self) -> LockResult<MutexGuard<'_, T>> {
         self.value.lock()
     }
@@ -33,6 +43,7 @@ impl<T> SharedMutable<T> {
     /// Try picking up the lock to see if it's locked.
     /// If accidentally acquired the lock, it will be unlocked immediately.
     ///
+    #[allow(dead_code)]
     pub fn locked(&self) -> bool {
         match self.value.try_lock() {
             Ok(mutex_guard) => {

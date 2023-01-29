@@ -16,6 +16,7 @@ const PEER_INITIAL_TTL: i8 = 3;
 
 pub type PeerSetType = SharedMutable<Vec<Peer>>;
 
+
 trait Broadcast {
     fn to_broadcast_addr(&self) -> Ipv4Addr;
 }
@@ -75,16 +76,20 @@ fn get_broadcast_addresses() -> Result<Vec<Ipv4Addr>, network_interface::Error> 
         .collect::<Vec<Ipv4Addr>>())
 }
 
-// TODO: 断线重连
-fn server_routine(server_socket: &UdpSocket, peers: PeerSetType) -> Result<(), io::Error> {
+fn server_routine(server_socket: &UdpSocket, peers: PeerSetType, should_reconnect: SharedMutable<bool>) -> Result<(), io::Error> {
     let mut buf: [u8; BUF_SIZE] = [0u8; BUF_SIZE];
 
     loop {
+        if let Ok(locked) = should_reconnect.lock_and_get() {
+            if *locked {
+                return Ok(());
+            }
+        }
+
         let (size, peer_addr) = match server_socket.recv_from(&mut buf) {
             Ok((x, y)) => (x, y),
             Err(e) => {
-                println!("Error: {}", e);
-                continue;
+                return Err(e);
             }
         };
 
@@ -102,7 +107,7 @@ fn server_routine(server_socket: &UdpSocket, peers: PeerSetType) -> Result<(), i
                 }
             }
             Err(e) => {
-                println!("Error: {}", e);
+                // Client sent invalid message.
                 continue;
             }
         }
@@ -124,8 +129,14 @@ fn server_routine(server_socket: &UdpSocket, peers: PeerSetType) -> Result<(), i
     }
 }
 
-fn server_associate_routine(peers: PeerSetType) -> Result<(), io::Error> {
+fn peer_ttl_decrement(peers: PeerSetType, should_reconnect: SharedMutable<bool>) -> Result<(), io::Error> {
     loop {
+        if let Ok(locked) = should_reconnect.lock_and_get() {
+            if *locked {
+                return Ok(());
+            }
+        }
+
         if let Ok(mut locked) = peers.lock_and_get() {
             for peer in locked.iter_mut() {
                 peer.decrement_ttl();
@@ -136,13 +147,15 @@ fn server_associate_routine(peers: PeerSetType) -> Result<(), io::Error> {
     }
 }
 
-fn client_routine(client_socket: &UdpSocket, server_port: u16) -> Result<(), io::Error> {
+fn client_routine(client_socket: &UdpSocket, server_port: u16, should_reconnect: SharedMutable<bool>) -> Result<(), io::Error> {
     let handshake_string_bytes = HANDSHAKE_MESSAGE.as_bytes();
     let broadcast_addresses = match get_broadcast_addresses() {
         Ok(x) => x,
         Err(e) => {
-            println!("Error: {}", e);
-            return Ok(());
+            return Err(io::Error::new(
+                io::ErrorKind::Other,
+                format!("Failed to get broadcast addresses: {}", e),
+            ));
         }
     };
 
@@ -175,10 +188,18 @@ fn client_routine(client_socket: &UdpSocket, server_port: u16) -> Result<(), io:
     //     let target_address = SocketAddr::new(broadcast_address, server_port as u16);
     //
     loop {
-        broadcast_addresses.iter().for_each(|addr| {
+        if let Ok(locked) = should_reconnect.lock_and_get() {
+            if *locked {
+                return Ok(());
+            }
+        }
+
+        for addr in broadcast_addresses.iter() {
             let broadcast_addr = SocketAddr::new(IpAddr::from(addr.octets()), server_port);
-            let _ = client_socket.send_to(handshake_string_bytes, broadcast_addr);
-        });
+            if let Err(e) = client_socket.send_to(handshake_string_bytes, broadcast_addr) {
+                return Err(e);
+            }
+        }
 
         sleep(Duration::from_secs(DISCOVERY_RATE));
     }
@@ -188,18 +209,17 @@ pub struct DiscoveryService {
     server_socket: UdpSocket,
     client_socket: UdpSocket,
     server_port: u16,
+    client_port: u16,
     thread_pool: threadpool::ThreadPool,
     is_started: bool,
     peer_list: PeerSetType,
+    should_reconnect: SharedMutable<bool>,
 }
 
 impl DiscoveryService {
     pub fn new(server_port: u16, client_port: u16) -> Result<Self, io::Error> {
-        let server_socket = UdpSocket::bind(format!("0.0.0.0:{}", server_port))?;
-        let client_socket = UdpSocket::bind(format!("0.0.0.0:{}", client_port))?;
-
-        client_socket.set_broadcast(true)?;
-        server_socket.set_broadcast(true)?;
+        let server_socket = Self::create_broadcast_socket(server_port)?;
+        let client_socket = Self::create_broadcast_socket(client_port)?;
 
         let thread_pool = threadpool::Builder::new()
             .thread_name(String::from("DiscoveryDispatch"))
@@ -210,35 +230,78 @@ impl DiscoveryService {
             server_socket,
             client_socket,
             server_port,
+            client_port,
             thread_pool,
             peer_list: SharedMutable::new(Vec::new()),
             is_started: false,
+            should_reconnect: SharedMutable::new(false),
         })
     }
 
-    pub fn start(&mut self) -> Result<(), io::Error> {
+    pub fn create_broadcast_socket(port: u16) -> Result<UdpSocket, io::Error> {
+        match UdpSocket::bind(format!("0.0.0.0:{}", port)) {
+            Ok(s) => {
+                s.set_broadcast(true)?;
+                Ok(s)
+            }
+            Err(e) => Err(e),
+        }
+    }
+
+    pub fn reconnect(&mut self, server_port: u16, client_port: u16) -> Result<(), io::Error> {
+        self.server_socket = Self::create_broadcast_socket(server_port)?;
+        self.client_socket = Self::create_broadcast_socket(client_port)?;
+
+        Ok(())
+    }
+
+    pub fn run(&mut self) -> Result<(), io::Error> {
         if self.is_started {
             return Err(io::Error::new(io::ErrorKind::Other, "Already started"));
         }
         self.is_started = true;
 
-        // Clone sockets.
-        let server_socket = self.server_socket.try_clone()?;
-        let client_socket = self.client_socket.try_clone()?;
+        loop {
+            // Clone sockets.
+            let server_socket = self.server_socket.try_clone()?;
+            let client_socket = self.client_socket.try_clone()?;
 
-        let server_port = self.server_port;
-        let peer_list_ref_clone = self.peer_list.clone();
-        let peer_list_ref_clone1 = self.peer_list.clone();
+            let server_port = self.server_port;
 
-        self.thread_pool.execute(move || {
-            let _ = server_routine(&server_socket, peer_list_ref_clone);
-        });
-        self.thread_pool.execute(move || {
-            let _ = server_associate_routine(peer_list_ref_clone1);
-        });
-        self.thread_pool.execute(move || {
-            let _ = client_routine(&client_socket, server_port);
-        });
+            let should_reconnect_a = self.should_reconnect.clone();
+            let should_reconnect_b = self.should_reconnect.clone();
+            let should_reconnect_c = self.should_reconnect.clone();
+            let should_reconnect_d = self.should_reconnect.clone();
+
+            let peer_list_a = self.peer_list.clone();
+            let peer_list_b = self.peer_list.clone();
+
+            self.thread_pool.execute(move || {
+                let _ = server_routine(&server_socket, peer_list_a, should_reconnect_a.clone());
+                if let Ok(mut locked) = should_reconnect_a.clone().lock_and_get() {
+                    *locked = true;
+                }
+            });
+            self.thread_pool.execute(move || {
+                let _ = peer_ttl_decrement(peer_list_b, should_reconnect_b.clone());
+                if let Ok(mut locked) = should_reconnect_b.clone().lock_and_get() {
+                    *locked = true;
+                }
+            });
+            self.thread_pool.execute(move || {
+                let _ = client_routine(&client_socket, server_port, should_reconnect_c.clone());
+                if let Ok(mut locked) = should_reconnect_c.clone().lock_and_get() {
+                    *locked = true;
+                }
+            });
+
+            self.thread_pool.join();
+
+            if let Ok(mut locked) = should_reconnect_d.lock_and_get() {
+                *locked = false;
+            }
+            self.reconnect(self.server_port, self.client_port)?;
+        }
 
         Ok(())
     }

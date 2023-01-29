@@ -7,11 +7,7 @@ use crate::service::text_service::TextService;
 use crate::util::shared_mutable::SharedMutable;
 
 fn on_text_received(text: String, _: &SocketAddr) {
-    if let Ok(mut clip) = arboard::Clipboard::new() {
-        let _ = clip.set_text(text);
-
-        // TODO: Should skip next broadcast here.
-    }
+    println!("Received text: {}", text);
 }
 
 pub struct AirXServiceConfig<'a> {
@@ -52,11 +48,18 @@ impl<'a> AirXService<'a> {
         text_service.subscribe(on_text_received);
 
         // Start discovery service.
-        discovery_service.start()?;
+        discovery_service.run()?;
 
         Ok(Self {
             config: config.clone(),
             text_service: SharedMutable::new(text_service),
         })
     } // run
+
+    pub fn run_text_service_sync(&self) -> Result<(), io::Error> {
+        match self.text_service.lock_and_get() {
+            Ok(locked) => locked.run(),
+            Err(_) => Err(io::Error::new(io::ErrorKind::Other, "Failed to lock text service.")),
+        }
+    }
 }
