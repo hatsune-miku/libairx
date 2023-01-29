@@ -40,32 +40,23 @@ pub struct AirXService<'a> {
 impl<'a> AirXService<'a> {
     pub fn new(config: &AirXServiceConfig<'a>) -> Result<Self, io::Error> {
         // Create services.
-        let discovery_service = discovery_service::DiscoveryService::new(
+        let mut discovery_service = discovery_service::DiscoveryService::new(
             config.discovery_service_server_port,
             config.discovery_service_client_port,
         )?;
 
-        let text_service = TextService::create_and_listen(
+        let mut text_service = TextService::new(
             config.text_service_listen_addr.to_string(),
             config.text_service_listen_port,
-            on_text_received,
-        )?;
-        let text_service = SharedMutable::new(text_service);
-
-        // Create service pointers.
-        let discover_srv_ref = SharedMutable::new(discovery_service);
+        );
+        text_service.subscribe(on_text_received);
 
         // Start discovery service.
-        discover_srv_ref
-            .lock_and_get()
-            .unwrap()
-            .start()
-            .expect("Failed to start service.");
-        println!("Discovery service started.");
+        discovery_service.start()?;
 
         Ok(Self {
             config: config.clone(),
-            text_service,
+            text_service: SharedMutable::new(text_service),
         })
     } // run
 }

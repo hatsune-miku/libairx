@@ -1,3 +1,4 @@
+use std::borrow::Borrow;
 use crate::network::peer::Peer;
 use crate::network::socket::Socket;
 use crate::network::tcp_server::TcpServer;
@@ -8,33 +9,47 @@ use std::net::SocketAddr;
 
 pub type OnReceiveType = fn(text: String, source: &SocketAddr);
 
-fn server_routine(host: &str, port: u16, on_receive: OnReceiveType) -> Result<(), io::Error> {
-    let mut server_socket = TcpServer::create_and_listen(host, port)?;
-    while let Ok((stream, socket_addr)) = server_socket.accept() {
-        let mut socket = Socket::from(stream);
-        let mut tt = transmission::text::TextTransmission::from(&mut socket);
-        if let Ok(s) = tt.read_text() {
-            if !s.starts_with("SYNC:") {
-                continue;
-            }
-            let text = s.split(":").collect::<Vec<&str>>()[1..].join(":");
-            on_receive(text, &socket_addr);
-        }
-    }
-    Ok(())
+static SYNC_PREFIX: &'static str = "SYNC:";
+
+pub struct TextService {
+    host: String,
+    port: u16,
+    subscribers: Vec<OnReceiveType>,
 }
 
-pub struct TextService;
-
 impl TextService {
-    pub fn create_and_listen(
-        host: String,
-        port: u16,
-        on_receive: OnReceiveType,
-    ) -> Result<Self, io::Error> {
-        let host_clone = host.clone();
-        std::thread::spawn(move || server_routine(host_clone.as_str(), port, on_receive));
-        Ok(Self)
+    pub fn new(host: String, port: u16) -> Self {
+        Self {
+            host,
+            port,
+            subscribers: Vec::new(),
+        }
+    }
+
+    pub fn subscribe(&mut self, subscriber: OnReceiveType) {
+        self.subscribers.push(subscriber);
+    }
+
+    pub fn run(
+        &self,
+    ) -> Result<(), io::Error> {
+        let mut server_socket = TcpServer::create_and_listen(
+            self.host.as_str(), self.port)?;
+        while let Ok((stream, socket_addr)) = server_socket.accept() {
+            let mut socket = Socket::from(stream);
+            let mut tt = transmission::text::TextTransmission::from(&mut socket);
+            if let Ok(s) = tt.read_text() {
+                if !s.starts_with(SYNC_PREFIX) {
+                    continue;
+                }
+
+                let text = String::from(&s[SYNC_PREFIX.len()..]);
+                for subscriber in &self.subscribers {
+                    subscriber(text.clone(), &socket_addr);
+                }
+            }
+        }
+        Ok(())
     }
 
     /// Connect, send and close.
@@ -47,7 +62,7 @@ impl TextService {
     ) -> Result<(), io::Error> {
         let mut socket = Socket::connect(peer.host(), port, connect_timeout)?;
         let mut tt = transmission::text::TextTransmission::from(&mut socket);
-        tt.send_text(&*String::from(format!("SYNC:{}", text)))?;
+        tt.send_text(String::from(format!("{}{}", SYNC_PREFIX, text)).as_str())?;
         socket.close()?;
         Ok(())
     }
