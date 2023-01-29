@@ -5,6 +5,7 @@ use std::net::{IpAddr, Ipv4Addr, SocketAddr, UdpSocket};
 use std::sync::{Arc, Mutex};
 use std::thread::sleep;
 use std::time::Duration;
+use crate::util::shared_mutable::SharedMutable;
 
 const BUF_SIZE: usize = 512;
 const THREAD_MAX: usize = 8;
@@ -13,13 +14,7 @@ const DISCOVERY_DROP_RATE: u64 = 2;
 const HANDSHAKE_MESSAGE: &'static str = "Hi There! 👋 \\^O^/";
 const PEER_INITIAL_TTL: i8 = 3;
 
-// Arc (Atomically Reference Counted) convinces the compiler
-// that it's safe to share between threads.
-// Mutex explicitly uses a lock to convince the compiler
-// that it's safe to mutate.
-// The peer list itself is a HashSet.
-// TODO: maybe better solution?
-pub type PeerSetType = Arc<Mutex<Vec<Peer>>>;
+pub type PeerSetType = SharedMutable<Vec<Peer>>;
 
 trait Broadcast {
     fn to_broadcast_addr(&self) -> Ipv4Addr;
@@ -80,6 +75,7 @@ fn get_broadcast_addresses() -> Result<Vec<Ipv4Addr>, network_interface::Error> 
         .collect::<Vec<Ipv4Addr>>())
 }
 
+// TODO: 断线重连
 fn server_routine(server_socket: &UdpSocket, peers: PeerSetType) -> Result<(), io::Error> {
     let mut buf: [u8; BUF_SIZE] = [0u8; BUF_SIZE];
 
@@ -111,7 +107,7 @@ fn server_routine(server_socket: &UdpSocket, peers: PeerSetType) -> Result<(), i
             }
         }
 
-        if let Ok(mut locked) = peers.lock() {
+        if let Ok(mut locked) = peers.lock_and_get() {
             match locked.iter_mut().find(|peer| {
                 peer.host() == &peer_addr.ip().to_string() && peer.port() == peer_addr.port()
             }) {
@@ -130,7 +126,7 @@ fn server_routine(server_socket: &UdpSocket, peers: PeerSetType) -> Result<(), i
 
 fn server_associate_routine(peers: PeerSetType) -> Result<(), io::Error> {
     loop {
-        if let Ok(mut locked) = peers.lock() {
+        if let Ok(mut locked) = peers.lock_and_get() {
             for peer in locked.iter_mut() {
                 peer.decrement_ttl();
             }
@@ -215,7 +211,7 @@ impl DiscoveryService {
             client_socket,
             server_port,
             thread_pool,
-            peer_list: Arc::new(Mutex::new(Vec::new())),
+            peer_list: SharedMutable::new(Vec::new()),
             is_started: false,
         })
     }
@@ -248,7 +244,7 @@ impl DiscoveryService {
     }
 
     pub fn get_peer_list(&self) -> Result<Vec<Peer>, io::Error> {
-        if let Ok(locked) = self.peer_list.lock() {
+        if let Ok(locked) = self.peer_list.lock_and_get() {
             Ok(locked.clone())
         } else {
             Err(io::Error::new(

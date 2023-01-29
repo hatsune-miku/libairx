@@ -1,10 +1,11 @@
+use std::io;
 use crate::hack::global::GLOBAL;
 use crate::network::discovery_service;
-use crate::network::text_service;
 use std::net::SocketAddr;
-use std::sync::{Arc, Mutex};
 use std::thread::sleep;
 use std::time::Duration;
+use crate::service::text_service::TextService;
+use crate::util::shared_mutable::SharedMutable;
 
 fn on_text_received(text: String, _: &SocketAddr) {
     if let Ok(mut clip) = arboard::Clipboard::new() {
@@ -17,73 +18,58 @@ fn on_text_received(text: String, _: &SocketAddr) {
     }
 }
 
-pub struct AirXService<'a> {
+pub struct AirXServiceConfig<'a> {
     discovery_service_server_port: u16,
     discovery_service_client_port: u16,
     text_service_listen_addr: &'a str,
     text_service_listen_port: u16,
 }
 
-impl Default for AirXService<'_> {
-    fn default() -> Self {
+impl Clone for AirXServiceConfig<'_> {
+    fn clone(&self) -> Self {
         Self {
-            discovery_service_server_port: 9818,
-            discovery_service_client_port: 0,
-            text_service_listen_addr: "0.0.0.0",
-            text_service_listen_port: 9819,
+            discovery_service_server_port: self.discovery_service_server_port,
+            discovery_service_client_port: self.discovery_service_client_port,
+            text_service_listen_addr: self.text_service_listen_addr,
+            text_service_listen_port: self.text_service_listen_port,
         }
     }
 }
 
+pub struct AirXService<'a> {
+    config: AirXServiceConfig<'a>,
+    text_service: SharedMutable<TextService>,
+}
+
 impl<'a> AirXService<'a> {
-    // 我用了呀（无辜）
-    // rust analyzer说我没用（指unused）
-    // 可是我用了呀（不敢相信）
-    #[allow(dead_code)]
-    pub fn run(&self, args: Vec<String>) {
+    pub fn new(config: &AirXServiceConfig<'a>) -> Result<Self, io::Error> {
         // Create services.
         let discovery_service = discovery_service::DiscoveryService::new(
-            self.discovery_service_server_port,
-            self.discovery_service_client_port,
-        )
-            .expect("Failed to create discovery service");
-        let text_service = text_service::TextService::create_and_listen(
-            self.text_service_listen_addr.to_string(),
-            self.text_service_listen_port,
+            config.discovery_service_server_port,
+            config.discovery_service_client_port,
+        )?;
+
+        let text_service = TextService::create_and_listen(
+            config.text_service_listen_addr.to_string(),
+            config.text_service_listen_port,
             on_text_received,
-        )
-            .expect("Failed to create text service");
+        )?;
+        let text_service = SharedMutable::new(text_service);
 
         // Create service pointers.
-        let discover_srv_ref: DiscoveryServiceType = Arc::new(Mutex::new(discovery_service));
+        let discover_srv_ref = SharedMutable::new(discovery_service);
 
         // Start discovery service.
         discover_srv_ref
-            .lock()
+            .lock_and_get()
             .unwrap()
             .start()
             .expect("Failed to start service.");
         println!("Discovery service started.");
 
-        loop {
-            sleep(Duration::from_secs(1));
-
-            // print peers.
-            if args.contains(&String::from("--verbose")) {
-                if let Ok(locked) = discover_srv_ref.lock() {
-                    if let Ok(peer_list) = locked.get_peer_list() {
-                        println!(
-                            "[{}] Peers: {}",
-                            chrono::Local::now().format("%Y-%m-%d %H:%M:%S"),
-                            peer_list
-                                .iter()
-                                .map(|p| p.to_string())
-                                .collect::<Vec<String>>()
-                                .join(", ")
-                        );
-                    }
-                }
-            } // if
-        } // loop
+        Ok(Self {
+            config: config.clone(),
+            text_service,
+        })
     } // run
 }

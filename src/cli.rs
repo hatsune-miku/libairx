@@ -9,5 +9,5 @@ use std::env;
 
 fn main() {
     let airx = airx_service::AirXService::default();
-    airx.run(env::args().collect::<Vec<String>>());
+    airx.run();
 }
