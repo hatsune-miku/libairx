@@ -58,4 +58,8 @@ impl<'a> AirXService<'a> {
     pub fn discovery_service(&self) -> SharedMutable<DiscoveryService> {
         self.discovery_service.clone()
     }
+
+    pub fn config(&self) -> AirXServiceConfig<'a> {
+        self.config.clone()
+    }
 }
