@@ -16,16 +16,10 @@
 - Normal startup
 
 ```shell
-$ ./airx
+$ cargo run
 ```
 
 - Verbose mode that prints peers list every second
-
-```shell
-$ ./airx --verbose
-```
-
-or
 
 ```shell
 $ cargo run -- --verbose
@@ -33,10 +27,9 @@ $ cargo run -- --verbose
 
 ### Credits
 
-| Contributor | #         |
-|-------------|-----------|
-| G, Z        | 202191382 |
-| L, S        | 201714987 |
-| G, J        | 202096888 |
-| G, C        | 202194431 |
-
+| Contributor |     #     |
+|:-----------:|:---------:|
+|    G, Z     | 202191382 |
+|    L, S     | 201714987 |
+|    G, J     | 202096888 |
+|    G, C     | 202194431 |
