@@ -1,8 +1,6 @@
 use crate::hack::global::GLOBAL;
 use crate::network::discovery_service;
 use crate::network::text_service;
-use crate::service::clipboard_service;
-use crate::service::clipboard_service::{DiscoveryServiceType, TextServiceType};
 use std::net::SocketAddr;
 use std::sync::{Arc, Mutex};
 use std::thread::sleep;
@@ -48,25 +46,16 @@ impl<'a> AirXService<'a> {
             self.discovery_service_server_port,
             self.discovery_service_client_port,
         )
-        .expect("Failed to create discovery service");
+            .expect("Failed to create discovery service");
         let text_service = text_service::TextService::create_and_listen(
             self.text_service_listen_addr.to_string(),
             self.text_service_listen_port,
             on_text_received,
         )
-        .expect("Failed to create text service");
+            .expect("Failed to create text service");
 
         // Create service pointers.
         let discover_srv_ref: DiscoveryServiceType = Arc::new(Mutex::new(discovery_service));
-        let text_srv_ref: TextServiceType = Arc::new(Mutex::new(text_service));
-
-        // Create clipboard handler.
-        clipboard_service::ClipboardService::start(
-            discover_srv_ref.clone(),
-            text_srv_ref.clone(),
-            self.text_service_listen_port,
-        );
-        println!("Clipboard service started.");
 
         // Start discovery service.
         discover_srv_ref
