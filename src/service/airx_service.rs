@@ -3,18 +3,15 @@ use crate::network::discovery_service;
 use std::net::SocketAddr;
 use std::thread::sleep;
 use std::time::Duration;
+use crate::network::discovery_service::DiscoveryService;
 use crate::service::text_service::TextService;
 use crate::util::shared_mutable::SharedMutable;
 
-fn on_text_received(text: String, _: &SocketAddr) {
-    println!("Received text: {}", text);
-}
-
 pub struct AirXServiceConfig<'a> {
-    discovery_service_server_port: u16,
-    discovery_service_client_port: u16,
-    text_service_listen_addr: &'a str,
-    text_service_listen_port: u16,
+    pub discovery_service_server_port: u16,
+    pub discovery_service_client_port: u16,
+    pub text_service_listen_addr: &'a str,
+    pub text_service_listen_port: u16,
 }
 
 impl Clone for AirXServiceConfig<'_> {
@@ -31,12 +28,13 @@ impl Clone for AirXServiceConfig<'_> {
 pub struct AirXService<'a> {
     config: AirXServiceConfig<'a>,
     text_service: SharedMutable<TextService>,
+    discovery_service: SharedMutable<DiscoveryService>,
 }
 
 impl<'a> AirXService<'a> {
     pub fn new(config: &AirXServiceConfig<'a>) -> Result<Self, io::Error> {
         // Create services.
-        let mut discovery_service = discovery_service::DiscoveryService::new(
+        let mut discovery_service = DiscoveryService::new(
             config.discovery_service_server_port,
             config.discovery_service_client_port,
         )?;
@@ -45,21 +43,33 @@ impl<'a> AirXService<'a> {
             config.text_service_listen_addr.to_string(),
             config.text_service_listen_port,
         );
-        text_service.subscribe(on_text_received);
-
-        // Start discovery service.
-        discovery_service.run()?;
 
         Ok(Self {
             config: config.clone(),
             text_service: SharedMutable::new(text_service),
+            discovery_service: SharedMutable::new(discovery_service),
         })
     } // run
 
+    pub fn run_discovery_service_sync(&self) -> Result<(), io::Error> {
+        match self.discovery_service.lock() {
+            Ok(mut locked) => locked.run(),
+            Err(_) => Err(io::Error::new(io::ErrorKind::Other, "Failed to lock discovery service.")),
+        }
+    }
+
     pub fn run_text_service_sync(&self) -> Result<(), io::Error> {
-        match self.text_service.lock_and_get() {
+        match self.text_service.lock() {
             Ok(locked) => locked.run(),
             Err(_) => Err(io::Error::new(io::ErrorKind::Other, "Failed to lock text service.")),
         }
+    }
+
+    pub fn text_service(&self) -> SharedMutable<TextService> {
+        self.text_service.clone()
+    }
+
+    pub fn discovery_service(&self) -> SharedMutable<DiscoveryService> {
+        self.discovery_service.clone()
     }
 }

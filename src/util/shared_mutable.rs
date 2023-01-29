@@ -32,10 +32,18 @@ impl<T> SharedMutable<T> {
     }
 
     ///
+    /// Unwrap immediately no matter lock is acquired or not.
+    ///
+    #[allow(dead_code)]
+    pub fn access(&self) -> MutexGuard<'_, T> {
+        self.value.lock().unwrap()
+    }
+
+    ///
     /// Blocks until the lock is acquired.
     ///
     #[allow(dead_code)]
-    pub fn lock_and_get(&self) -> LockResult<MutexGuard<'_, T>> {
+    pub fn lock(&self) -> LockResult<MutexGuard<'_, T>> {
         self.value.lock()
     }
 

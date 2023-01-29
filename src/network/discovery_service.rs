@@ -118,51 +118,45 @@ impl DiscoveryService {
 
         loop {
             // Clone sockets.
-            let server_socket = self.server_socket.try_clone()?;
-            let peer_list = self.peer_set.clone();
+            let server_socket = &self.server_socket;
 
             let mut buf: [u8; BUF_SIZE] = [0u8; BUF_SIZE];
-
-            loop {
-                let (size, peer_addr) = match server_socket.recv_from(&mut buf) {
-                    Ok((x, y)) => (x, y),
-                    Err(_) => {
-                        break;
-                    }
-                };
-
-                // From self?
-                if peer_addr.ip() == server_socket.local_addr()?.ip() {
-                    continue;
+            let (size, peer_addr) = match server_socket.recv_from(&mut buf) {
+                Ok((x, y)) => (x, y),
+                Err(_) => {
+                    break;
                 }
+            };
 
-                // Not handshake message?
-                let message = String::from_utf8(Vec::from(&buf[..size]));
-                match message {
-                    Ok(x) => {
-                        if &x != HANDSHAKE_MESSAGE {
-                            continue;
-                        }
-                    }
-                    Err(e) => {
-                        // Client sent invalid message.
+            // From self?
+            if peer_addr.ip() == server_socket.local_addr()?.ip() {
+                continue;
+            }
+
+            // Not handshake message?
+            let message = String::from_utf8(Vec::from(&buf[..size]));
+            match message {
+                Ok(x) => {
+                    if &x != HANDSHAKE_MESSAGE {
                         continue;
                     }
                 }
-
-                if let Ok(mut locked) = self.peer_set.lock_and_get() {
-                    locked.push(Peer::from(&peer_addr));
+                Err(e) => {
+                    // Client sent invalid message.
+                    continue;
                 }
             }
 
-            self.reconnect(self.server_port)?;
+            if let Ok(mut locked) = self.peer_set.lock() {
+                locked.insert(Peer::from(&peer_addr));
+            }
         }
 
         Ok(())
     }
 
     pub fn broadcast_discovery_request(&self) -> Result<(), io::Error> {
-        let client_socket = Self::create_broadcast_socket(self.client_port);
+        let client_socket = Self::create_broadcast_socket(self.client_port)?;
         let handshake_string_bytes = HANDSHAKE_MESSAGE.as_bytes();
         let broadcast_addresses = match get_broadcast_addresses() {
             Ok(x) => x,
@@ -203,11 +197,11 @@ impl DiscoveryService {
         //     let target_address = SocketAddr::new(broadcast_address, server_port as u16);
         //
 
-        if let Ok(mut locked) = self.peer_set.lock_and_get() {
+        if let Ok(mut locked) = self.peer_set.lock() {
             locked.clear();
         }
         for addr in broadcast_addresses.iter() {
-            let broadcast_addr = SocketAddr::new(IpAddr::from(addr.octets()), server_port);
+            let broadcast_addr = SocketAddr::new(IpAddr::from(addr.octets()), self.server_port);
             if let Err(_) = client_socket.send_to(handshake_string_bytes, broadcast_addr) {
                 continue;
             }
@@ -216,8 +210,8 @@ impl DiscoveryService {
         Ok(())
     }
 
-    pub fn get_peer_list(&self) -> Result<Vec<Peer>, io::Error> {
-        if let Ok(locked) = self.peer_set.lock_and_get() {
+    pub fn get_peer_list(&self) -> Result<HashSet<Peer>, io::Error> {
+        if let Ok(locked) = self.peer_set.lock() {
             Ok(locked.clone())
         } else {
             Err(io::Error::new(
