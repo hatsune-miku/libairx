@@ -13,16 +13,10 @@
 
 ### Usage
 
-- Normal startup
+- Build
 
 ```shell
-$ cargo run
-```
-
-- Verbose mode that prints peers list every second
-
-```shell
-$ cargo run -- --verbose
+cargo build --release --lib
 ```
 
 ### Credits
