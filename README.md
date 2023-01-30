@@ -19,6 +19,12 @@
 cargo build --release --lib
 ```
 
+### Demonstration
+
+[demoairx](https://github.com/hatsune-miku/demoairx): Demo build written in Electron + FFI.
+![](images/1.png)
+
+
 ### Credits
 
 | Contributor |     #     |
