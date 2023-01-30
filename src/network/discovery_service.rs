@@ -140,9 +140,6 @@ impl DiscoveryService {
         //     let target_address = SocketAddr::new(broadcast_address, server_port as u16);
         //
 
-        if let Ok(mut locked) = self.peer_set_ptr.lock() {
-            locked.clear();
-        }
         for addr in broadcast_addresses.iter() {
             let broadcast_addr = SocketAddr::new(IpAddr::from(addr.octets()), self.server_port);
             if let Err(_) = client_socket.send_to(handshake_string_bytes, broadcast_addr) {

@@ -12,7 +12,8 @@ use crate::network::discovery_service::DiscoveryService;
 use crate::service::text_service::TextService;
 use crate::util::shared_mutable::SharedMutable;
 
-fn main() {
+
+fn test() {
     let config = airx_service::AirXServiceConfig {
         discovery_service_server_port: 9818,
         discovery_service_client_port: 0,
@@ -53,9 +54,9 @@ fn main() {
         service_disc.access().peers().access().iter().for_each(|peer| {
             println!("Peer: {}", peer);
         });
-
-
-        service_disc.access().broadcast_discovery_request()
-            .expect("Failed to broadcast discovery request.");
     }
+}
+
+fn main() {
+    test();
 }

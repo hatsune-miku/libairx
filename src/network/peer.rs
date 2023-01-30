@@ -1,7 +1,8 @@
 use std::fmt;
+use std::hash::Hash;
 use std::net::SocketAddr;
 
-#[derive(Eq, Hash, Clone)]
+#[derive(Eq, Clone)]
 pub struct Peer {
     host: String,
     port: u16,
@@ -9,13 +10,19 @@ pub struct Peer {
 
 impl fmt::Display for Peer {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(f, "[{}:{}]", self.host, self.port)
+        write!(f, "{}", self.host)
+    }
+}
+
+impl Hash for Peer {
+    fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
+        self.host.hash(state);
     }
 }
 
 impl PartialEq for Peer {
     fn eq(&self, other: &Self) -> bool {
-        self.host == other.host && self.port == other.port
+        self.host == other.host
     }
 
     fn ne(&self, other: &Self) -> bool {

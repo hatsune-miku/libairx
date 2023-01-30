@@ -1,30 +1,35 @@
-#include <cstdarg>
-#include <cstdint>
-#include <cstdlib>
-#include <ostream>
-#include <new>
+#include <stdarg.h>
+#include <stdbool.h>
+#include <stdint.h>
+#include <stdlib.h>
 
-constexpr static const uintptr_t LENGTH_PRESERVE_SIZE = 16;
+#define LENGTH_PRESERVE_SIZE 16
 
-constexpr static const uintptr_t MESSAGE_MAX_SIZE = ((2 << (LENGTH_PRESERVE_SIZE - 1)) - 1);
+#define MESSAGE_MAX_SIZE ((2 << (LENGTH_PRESERVE_SIZE - 1)) - 1)
 
-struct AirXService;
+typedef struct AirXService AirXService;
 
-extern "C" {
+int32_t airx_version(void);
 
-int32_t airx_version();
+bool airx_is_first_run(void);
 
-AirXService *airx_create(uint16_t discovery_service_server_port,
-                         uint16_t discovery_service_client_port,
-                         char *text_service_listen_addr,
-                         uint16_t text_service_listen_port);
+struct AirXService *airx_create(uint16_t discovery_service_server_port,
+                                uint16_t discovery_service_client_port,
+                                char *text_service_listen_addr,
+                                uint16_t text_service_listen_port);
 
-void airx_lan_discovery_service(AirXService *airx_ptr);
+struct AirXService *airx_restore(void);
 
-void airx_text_service(AirXService *airx_ptr);
+void airx_lan_discovery_service(struct AirXService *airx_ptr);
 
-bool airx_lan_broadcast(AirXService *airx_ptr);
+void airx_lan_discovery_service_async(struct AirXService *airx_ptr);
 
-uintptr_t airx_get_peers(AirXService *airx_ptr, char *buffer);
+void airx_text_service(struct AirXService *airx_ptr);
 
-} // extern "C"
+void airx_text_service_async(struct AirXService *airx_ptr);
+
+bool airx_lan_broadcast(struct AirXService *airx_ptr);
+
+uint32_t airx_get_peers(struct AirXService *airx_ptr, char *buffer);
+
+void airx_start_auto_broadcast(struct AirXService *airx_ptr);
