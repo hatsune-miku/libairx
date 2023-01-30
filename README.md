@@ -1,5 +1,7 @@
 ## libairx - AirX Core Library
 
+[![Rust](https://github.com/hatsune-miku/libairx/actions/workflows/rust.yml/badge.svg)](https://github.com/hatsune-miku/libairx/actions/workflows/rust.yml)
+
 ### Features
 
 - LAN Discovery
@@ -23,7 +25,6 @@ cargo build --release --lib
 
 [demoairx](https://github.com/hatsune-miku/demoairx): Demo build written in Electron + FFI.
 ![](images/1.png)
-
 
 ### Credits
 
