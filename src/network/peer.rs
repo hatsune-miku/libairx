@@ -38,6 +38,13 @@ impl Peer {
         }
     }
 
+    pub fn new(host: &String, port: u16) -> Self {
+        Self {
+            host: host.clone(),
+            port,
+        }
+    }
+
     pub fn host(&self) -> &String {
         &self.host
     }

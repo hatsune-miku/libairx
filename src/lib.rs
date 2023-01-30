@@ -6,6 +6,7 @@ use std::ptr::copy;
 use std::thread::Thread;
 use std::time::Duration;
 use crate::network::discovery_service::DiscoveryService;
+use crate::network::peer::Peer;
 use crate::service::airx_service::AirXService;
 use crate::service::text_service::TextService;
 
@@ -116,14 +117,22 @@ pub extern "C" fn airx_lan_discovery_service_async(airx_ptr: &'static mut AirXSe
 }
 
 #[export_name = "airx_text_service"]
-pub extern "C" fn airx_text_service(airx_ptr: *mut AirXService) {
+pub extern "C" fn airx_text_service(
+    airx_ptr: *mut AirXService,
+    callback: extern "C" fn(*const c_char),
+) {
     let airx = unsafe { &mut *airx_ptr };
     let config = airx.config();
 
     let service_text = airx.text_service();
-    let service_text = service_text.access();
-    let subscribers_ptr = service_text.subscribers();
+    let mut service_text = service_text.access();
 
+    service_text.subscribe(Box::new(move |msg, _| {
+        let c_str_ptr = msg.as_ptr();
+        callback(c_str_ptr as *const c_char); // u8 to i8
+    }));
+
+    let subscribers_ptr = service_text.subscribers();
     drop(service_text);
 
     let _ = TextService::run(
@@ -134,11 +143,14 @@ pub extern "C" fn airx_text_service(airx_ptr: *mut AirXService) {
 }
 
 #[export_name = "airx_text_service_async"]
-pub extern "C" fn airx_text_service_async(airx_ptr: &'static mut AirXService) {
+pub extern "C" fn airx_text_service_async(
+    airx_ptr: &'static mut AirXService,
+    callback: extern "C" fn(*const c_char),
+) {
     let wrapper = PointerWrapper::new(airx_ptr);
     std::thread::spawn(move || {
         let airx_ptr = wrapper.get();
-        airx_text_service(airx_ptr);
+        airx_text_service(airx_ptr, callback);
     });
 }
 
@@ -184,4 +196,62 @@ pub extern "C" fn airx_start_auto_broadcast(airx_ptr: &'static mut AirXService) 
             airx_lan_broadcast(airx);
         }
     });
+}
+
+#[export_name = "airx_send_text"]
+pub extern "C" fn airx_send_text(airx_ptr: *mut AirXService, host: *const c_char, text: *mut c_char) {
+    let airx = unsafe { &mut *airx_ptr };
+    let config = airx.config();
+    let service_text = airx.text_service();
+    let text = unsafe { CStr::from_ptr(text) };
+    let text = text.to_str();
+    let text = match text {
+        Ok(text) => text.to_string(),
+        Err(_) => return,
+    };
+
+    let peer_address = match unsafe { CStr::from_ptr(host) }.to_str() {
+        Ok(peer) => peer,
+        Err(_) => return,
+    };
+    if let Ok(locked) = service_text.clone().lock() {
+        let _ = locked.send(
+            &Peer::new(
+                &peer_address.to_string(),
+                config.text_service_listen_port,
+            ),
+            config.text_service_listen_port,
+            &text,
+            Duration::from_secs(1),
+        );
+    }
+}
+
+#[export_name = "airx_broadcast_text"]
+pub extern "C" fn airx_broadcast_text(airx_ptr: *mut AirXService, text: *mut c_char) {
+    let airx = unsafe { &mut *airx_ptr };
+    let config = airx.config();
+    let service_text = airx.text_service();
+    let service_disc = airx.discovery_service();
+    let text = unsafe { CStr::from_ptr(text) };
+    let text = text.to_str();
+    let text = match text {
+        Ok(text) => text.to_string(),
+        Err(_) => return,
+    };
+
+    if let Ok(locked) = service_disc.clone().lock() {
+        if let Ok(peers_ptr) = locked.peers().lock() {
+            for peer in peers_ptr.iter() {
+                if let Ok(locked) = service_text.lock() {
+                    let _ = locked.send(
+                        peer,
+                        config.text_service_listen_port,
+                        &text,
+                        Duration::from_secs(1),
+                    );
+                }
+            }
+        }
+    }
 }
