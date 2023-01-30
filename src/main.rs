@@ -54,6 +54,9 @@ fn test() {
         service_disc.access().peers().access().iter().for_each(|peer| {
             println!("Peer: {}", peer);
         });
+
+        service_disc.access().broadcast_discovery_request()
+            .expect("Failed to broadcast discovery request.");
     }
 }
 
