@@ -3,6 +3,7 @@ use crate::network::peer::Peer;
 use network_interface::{Addr, NetworkInterface, NetworkInterfaceConfig};
 use std::io;
 use std::net::{IpAddr, Ipv4Addr, SocketAddr, UdpSocket};
+use crate::service::ShouldInterruptType;
 use crate::util::shared_mutable::SharedMutable;
 
 const BUF_SIZE: usize = 512;
@@ -89,6 +90,8 @@ impl DiscoveryService {
     pub fn create_broadcast_socket(port: u16) -> Result<UdpSocket, io::Error> {
         match UdpSocket::bind(format!("0.0.0.0:{}", port)) {
             Ok(s) => {
+                s.set_nonblocking(true)?; // non-blocking mode (for recv_from)
+                s.set_read_timeout(Some(std::time::Duration::from_millis(1000)))?;
                 s.set_broadcast(true)?;
                 Ok(s)
             }
@@ -153,40 +156,59 @@ impl DiscoveryService {
     }
 
 
-    pub fn run(server_port: u16, peer_set: PeerSetType) -> Result<(), io::Error> {
+    pub fn handle_new_peer(
+        server_socket: &UdpSocket,
+        peer_set: PeerSetType,
+        buf: &[u8; BUF_SIZE],
+        size: usize,
+        peer_addr: &SocketAddr,
+    ) {
+
+        // From self?
+        if let Ok(addr) = server_socket.local_addr() {
+            if peer_addr.ip() == addr.ip() {
+                return;
+            }
+        }
+
+        // Not handshake message?
+        let message = String::from_utf8(Vec::from(&buf[..size]));
+        match message {
+            Ok(x) => {
+                if &x != HANDSHAKE_MESSAGE {
+                    return;
+                }
+            }
+            Err(_) => {
+                // Client sent invalid message.
+                return;
+            }
+        }
+
+        if let Ok(mut locked) = peer_set.lock() {
+            locked.insert(Peer::from(&peer_addr));
+        }
+    }
+
+    pub fn run(server_port: u16, peer_set_ptr: PeerSetType, should_interrupt: ShouldInterruptType) -> Result<(), io::Error> {
         let server_socket = Self::create_broadcast_socket(server_port)?;
+        let mut buf: [u8; BUF_SIZE] = [0u8; BUF_SIZE];
 
         loop {
-            // Clone sockets.
-            let mut buf: [u8; BUF_SIZE] = [0u8; BUF_SIZE];
-            let (size, peer_addr) = match server_socket.recv_from(&mut buf) {
-                Ok((x, y)) => (x, y),
+            match server_socket.recv_from(&mut buf) {
+                Ok((size, peer_addr)) => {
+                    Self::handle_new_peer(&server_socket, peer_set_ptr.clone(), &buf, size, &peer_addr);
+                }
+                Err(ref e) if e.kind() == io::ErrorKind::WouldBlock => {
+                    // Check if interrupted.
+                    if should_interrupt() {
+                        break;
+                    }
+                    continue;
+                }
                 Err(_) => {
                     break;
                 }
-            };
-
-            // From self?
-            if peer_addr.ip() == server_socket.local_addr()?.ip() {
-                continue;
-            }
-
-            // Not handshake message?
-            let message = String::from_utf8(Vec::from(&buf[..size]));
-            match message {
-                Ok(x) => {
-                    if &x != HANDSHAKE_MESSAGE {
-                        continue;
-                    }
-                }
-                Err(_) => {
-                    // Client sent invalid message.
-                    continue;
-                }
-            }
-
-            if let Ok(mut locked) = peer_set.lock() {
-                locked.insert(Peer::from(&peer_addr));
             }
         }
 

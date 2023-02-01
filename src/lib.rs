@@ -70,7 +70,10 @@ pub unsafe extern "C" fn airx_restore_service() -> *mut AirXService<'static> {
 
 #[allow(dead_code)]
 #[export_name = "airx_lan_discovery_service"]
-pub extern "C" fn airx_lan_discovery_service(airx_ptr: *mut AirXService) {
+pub extern "C" fn airx_lan_discovery_service(
+    airx_ptr: *mut AirXService,
+    should_interrupt: extern "C" fn() -> bool,
+) {
     let airx = unsafe { &mut *airx_ptr };
     let config = airx.config();
 
@@ -83,18 +86,22 @@ pub extern "C" fn airx_lan_discovery_service(airx_ptr: *mut AirXService) {
     let _ = DiscoveryService::run(
         config.discovery_service_server_port,
         peers_ptr,
+        Box::new(move || should_interrupt()),
     );
 }
 
 // `&'static` mut is actually a pointer type.
 #[allow(dead_code)]
 #[export_name = "airx_lan_discovery_service_async"]
-pub extern "C" fn airx_lan_discovery_service_async(airx_ptr: &'static mut AirXService) {
+pub extern "C" fn airx_lan_discovery_service_async(
+    airx_ptr: &'static mut AirXService,
+    should_interrupt: extern "C" fn() -> bool,
+) {
     let wrapper = PointerWrapper::new(airx_ptr);
     std::thread::spawn(move || {
         let airx_ptr = wrapper.get();
         let airx_ptr = unsafe { &mut *airx_ptr };
-        airx_lan_discovery_service(airx_ptr);
+        airx_lan_discovery_service(airx_ptr, should_interrupt);
     });
 }
 

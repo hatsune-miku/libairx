@@ -33,6 +33,7 @@ fn test() {
         let _ = DiscoveryService::run(
             config.discovery_service_server_port,
             peers_ptr,
+            Box::new(|| true),
         );
         println!("Discovery service stopped.")
     });
