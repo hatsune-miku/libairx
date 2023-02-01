@@ -3,8 +3,6 @@ use crate::network::peer::Peer;
 use network_interface::{Addr, NetworkInterface, NetworkInterfaceConfig};
 use std::io;
 use std::net::{IpAddr, Ipv4Addr, SocketAddr, UdpSocket};
-use std::sync::{Arc, Mutex};
-use std::time::Duration;
 use crate::util::shared_mutable::SharedMutable;
 
 const BUF_SIZE: usize = 512;

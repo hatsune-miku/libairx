@@ -1,5 +1,3 @@
-use std::borrow::Borrow;
-use std::collections::HashSet;
 use crate::network::peer::Peer;
 use crate::network::socket::Socket;
 use crate::network::tcp_server::TcpServer;
@@ -15,16 +13,12 @@ pub type SubscriberType = SharedMutable<Vec<OnReceiveType>>;
 static SYNC_PREFIX: &'static str = "SYNC:";
 
 pub struct TextService {
-    host: String,
-    port: u16,
     subscribers_ptr: SubscriberType,
 }
 
 impl TextService {
-    pub fn new(host: String, port: u16) -> Self {
+    pub fn new() -> Self {
         Self {
-            host,
-            port,
             subscribers_ptr: SharedMutable::new(Vec::new()),
         }
     }

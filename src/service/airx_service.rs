@@ -1,8 +1,4 @@
 use std::io;
-use crate::network::discovery_service;
-use std::net::SocketAddr;
-use std::thread::sleep;
-use std::time::Duration;
 use crate::network::discovery_service::DiscoveryService;
 use crate::service::text_service::TextService;
 use crate::util::shared_mutable::SharedMutable;
@@ -34,15 +30,12 @@ pub struct AirXService<'a> {
 impl<'a> AirXService<'a> {
     pub fn new(config: &AirXServiceConfig<'a>) -> Result<Self, io::Error> {
         // Create services.
-        let mut discovery_service = DiscoveryService::new(
+        let discovery_service = DiscoveryService::new(
             config.discovery_service_server_port,
             config.discovery_service_client_port,
         )?;
 
-        let mut text_service = TextService::new(
-            config.text_service_listen_addr.to_string(),
-            config.text_service_listen_port,
-        );
+        let text_service = TextService::new();
 
         Ok(Self {
             config: config.clone(),

@@ -3,8 +3,8 @@ extern crate core;
 use std::ffi::CStr;
 use std::os::raw::c_char;
 use std::ptr::copy;
-use std::thread::Thread;
 use std::time::Duration;
+use crate::lib_util::PointerWrapper;
 use crate::network::discovery_service::DiscoveryService;
 use crate::network::peer::Peer;
 use crate::service::airx_service::AirXService;
@@ -14,40 +14,18 @@ mod network;
 mod service;
 mod transmission;
 mod util;
+mod lib_util;
 
 static mut FIRST_RUN: bool = true;
 static mut AIRX_SERVICE: *mut AirXService = std::ptr::null_mut();
 
-struct PointerWrapper<T> {
-    ptr: *mut T,
-}
-
-unsafe impl<T> Send for PointerWrapper<T> {}
-
-unsafe impl<T> Sync for PointerWrapper<T> {}
-
-impl<T> Clone for PointerWrapper<T> {
-    fn clone(&self) -> Self {
-        PointerWrapper { ptr: self.ptr }
-    }
-}
-
-impl<T> PointerWrapper<T> {
-    fn new(ptr: *mut T) -> Self {
-        PointerWrapper { ptr }
-    }
-
-    fn get(&self) -> *mut T {
-        self.ptr
-    }
-}
-
-
+#[allow(dead_code)]
 #[export_name = "airx_version"]
 pub extern "C" fn airx_version() -> i32 {
     20230129
 }
 
+#[allow(dead_code)]
 #[export_name = "airx_is_first_run"]
 pub extern "C" fn is_first_run() -> bool {
     unsafe {
@@ -60,6 +38,7 @@ pub extern "C" fn is_first_run() -> bool {
     }
 }
 
+#[allow(dead_code)]
 #[export_name = "airx_create"]
 pub unsafe extern "C" fn airx_create_service(
     discovery_service_server_port: u16,
@@ -83,11 +62,13 @@ pub unsafe extern "C" fn airx_create_service(
     AIRX_SERVICE
 }
 
+#[allow(dead_code)]
 #[export_name = "airx_restore"]
 pub unsafe extern "C" fn airx_restore_service() -> *mut AirXService<'static> {
     AIRX_SERVICE
 }
 
+#[allow(dead_code)]
 #[export_name = "airx_lan_discovery_service"]
 pub extern "C" fn airx_lan_discovery_service(airx_ptr: *mut AirXService) {
     let airx = unsafe { &mut *airx_ptr };
@@ -106,6 +87,7 @@ pub extern "C" fn airx_lan_discovery_service(airx_ptr: *mut AirXService) {
 }
 
 // `&'static` mut is actually a pointer type.
+#[allow(dead_code)]
 #[export_name = "airx_lan_discovery_service_async"]
 pub extern "C" fn airx_lan_discovery_service_async(airx_ptr: &'static mut AirXService) {
     let wrapper = PointerWrapper::new(airx_ptr);
@@ -116,6 +98,7 @@ pub extern "C" fn airx_lan_discovery_service_async(airx_ptr: &'static mut AirXSe
     });
 }
 
+#[allow(dead_code)]
 #[export_name = "airx_text_service"]
 pub extern "C" fn airx_text_service(
     airx_ptr: *mut AirXService,
@@ -142,6 +125,7 @@ pub extern "C" fn airx_text_service(
     );
 }
 
+#[allow(dead_code)]
 #[export_name = "airx_text_service_async"]
 pub extern "C" fn airx_text_service_async(
     airx_ptr: &'static mut AirXService,
@@ -154,6 +138,7 @@ pub extern "C" fn airx_text_service_async(
     });
 }
 
+#[allow(dead_code)]
 #[export_name = "airx_lan_broadcast"]
 pub extern "C" fn airx_lan_broadcast(airx_ptr: *mut AirXService) -> bool {
     let airx = unsafe { &mut *airx_ptr };
@@ -166,6 +151,7 @@ pub extern "C" fn airx_lan_broadcast(airx_ptr: *mut AirXService) -> bool {
     x
 }
 
+#[allow(dead_code)]
 #[export_name = "airx_get_peers"]
 pub extern "C" fn airx_get_peers(airx_ptr: *mut AirXService, buffer: *mut c_char) -> u32 {
     let airx = unsafe { &mut *airx_ptr };
@@ -187,9 +173,10 @@ pub extern "C" fn airx_get_peers(airx_ptr: *mut AirXService, buffer: *mut c_char
     0
 }
 
+#[allow(dead_code)]
 #[export_name = "airx_start_auto_broadcast"]
 pub extern "C" fn airx_start_auto_broadcast(airx_ptr: &'static mut AirXService) {
-    let airx = unsafe { &mut *airx_ptr };
+    let airx = &mut *airx_ptr;
     std::thread::spawn(move || {
         loop {
             std::thread::sleep(Duration::from_secs(2));
@@ -198,6 +185,7 @@ pub extern "C" fn airx_start_auto_broadcast(airx_ptr: &'static mut AirXService) 
     });
 }
 
+#[allow(dead_code)]
 #[export_name = "airx_send_text"]
 pub extern "C" fn airx_send_text(airx_ptr: *mut AirXService, host: *const c_char, text: *mut c_char) {
     let airx = unsafe { &mut *airx_ptr };
@@ -227,6 +215,7 @@ pub extern "C" fn airx_send_text(airx_ptr: *mut AirXService, host: *const c_char
     }
 }
 
+#[allow(dead_code)]
 #[export_name = "airx_broadcast_text"]
 pub extern "C" fn airx_broadcast_text(airx_ptr: *mut AirXService, text: *mut c_char) {
     let airx = unsafe { &mut *airx_ptr };
