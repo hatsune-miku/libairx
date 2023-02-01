@@ -8,7 +8,7 @@ use service::airx_service;
 use std::env;
 use std::thread::sleep;
 use std::time::Duration;
-use crate::network::discovery_service::DiscoveryService;
+use crate::service::discovery_service::DiscoveryService;
 use crate::service::text_service::TextService;
 use crate::util::shared_mutable::SharedMutable;
 
@@ -42,6 +42,7 @@ fn test() {
         let _ = TextService::run(
             config.text_service_listen_addr,
             config.text_service_listen_port,
+            Box::new(|| true),
             subscribers_ptr,
         );
         println!("Text service stopped.")
