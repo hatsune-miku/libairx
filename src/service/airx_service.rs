@@ -1,5 +1,5 @@
 use std::io;
-use crate::network::discovery_service::DiscoveryService;
+use crate::service::discovery_service::DiscoveryService;
 use crate::service::text_service::TextService;
 use crate::util::shared_mutable::SharedMutable;
 

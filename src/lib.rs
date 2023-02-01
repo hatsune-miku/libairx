@@ -5,8 +5,8 @@ use std::os::raw::c_char;
 use std::ptr::copy;
 use std::time::Duration;
 use crate::lib_util::PointerWrapper;
-use crate::network::discovery_service::DiscoveryService;
 use crate::network::peer::Peer;
+use crate::service::discovery_service::DiscoveryService;
 use crate::service::airx_service::AirXService;
 use crate::service::text_service::TextService;
 
