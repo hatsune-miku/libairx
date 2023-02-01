@@ -2,6 +2,8 @@
 
 [![Rust](https://github.com/hatsune-miku/libairx/actions/workflows/rust.yml/badge.svg)](https://github.com/hatsune-miku/libairx/actions/workflows/rust.yml)
 
+![接口文档](https://github.com/hatsune-miku/libairx/wiki)
+
 ### Features
 
 - LAN Discovery
