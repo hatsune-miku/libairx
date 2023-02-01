@@ -103,6 +103,7 @@ pub extern "C" fn airx_lan_discovery_service_async(airx_ptr: &'static mut AirXSe
 pub extern "C" fn airx_text_service(
     airx_ptr: *mut AirXService,
     callback: extern "C" fn(*const c_char),
+    should_interrupt: extern "C" fn() -> bool,
 ) {
     let airx = unsafe { &mut *airx_ptr };
     let config = airx.config();
@@ -121,6 +122,7 @@ pub extern "C" fn airx_text_service(
     let _ = TextService::run(
         config.text_service_listen_addr,
         config.text_service_listen_port,
+        Box::new(move || should_interrupt()),
         subscribers_ptr,
     );
 }
@@ -130,11 +132,12 @@ pub extern "C" fn airx_text_service(
 pub extern "C" fn airx_text_service_async(
     airx_ptr: &'static mut AirXService,
     callback: extern "C" fn(*const c_char),
+    should_interrupt: extern "C" fn() -> bool,
 ) {
     let wrapper = PointerWrapper::new(airx_ptr);
     std::thread::spawn(move || {
         let airx_ptr = wrapper.get();
-        airx_text_service(airx_ptr, callback);
+        airx_text_service(airx_ptr, callback, should_interrupt);
     });
 }
 

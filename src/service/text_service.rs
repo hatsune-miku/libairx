@@ -4,7 +4,10 @@ use crate::network::tcp_server::TcpServer;
 use crate::transmission;
 use crate::transmission::protocol::text_transmission::{ReadText, SendText};
 use std::io;
+use std::io::ErrorKind::WouldBlock;
 use std::net::SocketAddr;
+use crate::service::ShouldInterruptType;
+use crate::transmission::text::TextTransmission;
 use crate::util::shared_mutable::SharedMutable;
 
 pub type OnReceiveType = Box<dyn Fn(String, &SocketAddr) + Send + Sync>;
@@ -48,25 +51,50 @@ impl TextService {
         Ok(())
     }
 
-    pub fn run(host: &str, port: u16, subscribers: SubscriberType) -> Result<(), io::Error> {
-        let mut server_socket = TcpServer::create_and_listen(
+    pub fn run(
+        host: &str,
+        port: u16,
+        should_interrupt: ShouldInterruptType,
+        subscribers: SubscriberType,
+    ) -> Result<(), io::Error> {
+        let server_socket = TcpServer::create_and_listen(
             host, port)?;
-        while let Ok((stream, socket_addr)) = server_socket.accept() {
-            let mut socket = Socket::from(stream);
-            let mut tt = transmission::text::TextTransmission::from(&mut socket);
-            if let Ok(s) = tt.read_text() {
-                if !s.starts_with(SYNC_PREFIX) {
+
+        for stream in server_socket.incoming() {
+            match stream {
+                Ok(stream) => {
+                    let socket_addr = match stream.peer_addr() {
+                        Ok(addr) => addr,
+                        Err(_) => continue,
+                    };
+                    let mut socket = Socket::from(stream);
+                    let mut tt = TextTransmission::from(&mut socket);
+                    if let Ok(s) = tt.read_text() {
+                        if !s.starts_with(SYNC_PREFIX) {
+                            continue;
+                        }
+
+                        let text = String::from(&s[SYNC_PREFIX.len()..]);
+                        if let Ok(locked) = subscribers.lock() {
+                            for subscriber in locked.iter() {
+                                subscriber(text.clone(), &socket_addr);
+                            }
+                        }
+                    }
+                }
+                Err(ref e) if e.kind() == WouldBlock => {
+                    // Check if interrupted.
+                    if should_interrupt() {
+                        break;
+                    }
                     continue;
                 }
-
-                let text = String::from(&s[SYNC_PREFIX.len()..]);
-                if let Ok(locked) = subscribers.lock() {
-                    for subscriber in locked.iter() {
-                        subscriber(text.clone(), &socket_addr);
-                    }
+                Err(_) => {
+                    break;
                 }
             }
         }
+
         Ok(())
     }
 }

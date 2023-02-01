@@ -1,18 +1,20 @@
 use std::io;
-use std::net::{SocketAddr, TcpListener, TcpStream};
+use std::net::{Incoming, TcpListener};
 
 pub struct TcpServer {
     listener: TcpListener,
 }
 
 impl TcpServer {
+    /// Create a new TcpServer with non-blocking mode.
     pub fn create_and_listen(host: &str, port: u16) -> Result<Self, io::Error> {
         let addr = format!("{}:{}", host, port);
         let listener = TcpListener::bind(addr)?;
+        listener.set_nonblocking(true)?;
         Ok(Self { listener })
     }
 
-    pub fn accept(&mut self) -> Result<(TcpStream, SocketAddr), io::Error> {
-        self.listener.accept()
+    pub fn incoming(&self) -> Incoming<'_> {
+        self.listener.incoming()
     }
 }
