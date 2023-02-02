@@ -2,7 +2,7 @@ extern crate core;
 
 use std::ffi::CStr;
 use std::os::raw::c_char;
-use std::ptr::{copy, null};
+use std::ptr::{copy};
 use std::time::Duration;
 use crate::lib_util::PointerWrapper;
 use crate::network::peer::Peer;
