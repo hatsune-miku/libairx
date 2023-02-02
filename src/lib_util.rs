@@ -1,4 +1,4 @@
-use std::ffi::c_char;
+use std::os::raw::c_char;
 
 pub struct PointerWrapper<T> {
     ptr: *mut T,
