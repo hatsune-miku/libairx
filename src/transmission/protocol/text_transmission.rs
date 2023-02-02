@@ -1,7 +1,7 @@
 use std::io;
 
 pub trait SendText {
-    fn send_text(&mut self, text: &str) -> Result<usize, io::Error>;
+    fn send_text(&mut self, text: String) -> Result<usize, io::Error>;
 }
 
 pub trait ReadText {

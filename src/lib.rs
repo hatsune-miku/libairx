@@ -1,20 +1,20 @@
 extern crate core;
 
-use std::ffi::CStr;
-use std::os::raw::c_char;
-use std::ptr::{copy};
-use std::time::Duration;
 use crate::lib_util::PointerWrapper;
 use crate::network::peer::Peer;
-use crate::service::discovery_service::DiscoveryService;
 use crate::service::airx_service::AirXService;
+use crate::service::discovery_service::DiscoveryService;
 use crate::service::text_service::TextService;
+use std::ffi::CStr;
+use std::os::raw::c_char;
+use std::ptr::copy;
+use std::time::Duration;
 
+mod lib_util;
 mod network;
 mod service;
 mod transmission;
 mod util;
-mod lib_util;
 
 static mut FIRST_RUN: bool = true;
 static mut AIRX_SERVICE: *mut AirXService = std::ptr::null_mut();
@@ -169,7 +169,9 @@ pub extern "C" fn airx_get_peers(airx_ptr: *mut AirXService, buffer: *mut c_char
 
     if let Ok(locked) = service_disc.lock() {
         if let Ok(peers_ptr) = locked.peers().lock() {
-            let joined = peers_ptr.iter().map(|peer| peer.to_string())
+            let joined = peers_ptr
+                .iter()
+                .map(|peer| peer.to_string())
                 .collect::<Vec<String>>()
                 .join(",");
             let bytes = joined.as_bytes();
@@ -188,17 +190,19 @@ pub extern "C" fn airx_get_peers(airx_ptr: *mut AirXService, buffer: *mut c_char
 #[export_name = "airx_start_auto_broadcast"]
 pub extern "C" fn airx_start_auto_broadcast(airx_ptr: &'static mut AirXService) {
     let airx = &mut *airx_ptr;
-    std::thread::spawn(move || {
-        loop {
-            std::thread::sleep(Duration::from_secs(2));
-            airx_lan_broadcast(airx);
-        }
+    std::thread::spawn(move || loop {
+        std::thread::sleep(Duration::from_secs(2));
+        airx_lan_broadcast(airx);
     });
 }
 
 #[allow(dead_code)]
 #[export_name = "airx_send_text"]
-pub extern "C" fn airx_send_text(airx_ptr: *mut AirXService, host: *const c_char, text: *mut c_char) {
+pub extern "C" fn airx_send_text(
+    airx_ptr: *mut AirXService,
+    host: *const c_char,
+    text: *mut c_char,
+) {
     let airx = unsafe { &mut *airx_ptr };
     let config = airx.config();
     let service_text = airx.text_service();
@@ -215,10 +219,7 @@ pub extern "C" fn airx_send_text(airx_ptr: *mut AirXService, host: *const c_char
     };
     if let Ok(locked) = service_text.clone().lock() {
         let _ = locked.send(
-            &Peer::new(
-                &peer_address.to_string(),
-                config.text_service_listen_port,
-            ),
+            &Peer::new(&peer_address.to_string(), config.text_service_listen_port),
             config.text_service_listen_port,
             &text,
             Duration::from_secs(1),

@@ -16,7 +16,7 @@ impl<'a> TextTransmission<'a> {
 }
 
 impl text_transmission::SendText for TextTransmission<'_> {
-    fn send_text(&mut self, message: &str) -> Result<usize, io::Error> {
+    fn send_text(&mut self, message: String) -> Result<usize, io::Error> {
         // Strings are already utf8 encoded.
         let bytes = message.as_bytes();
         let len = bytes.len();

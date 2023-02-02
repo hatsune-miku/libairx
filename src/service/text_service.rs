@@ -1,15 +1,15 @@
 use crate::network::peer::Peer;
 use crate::network::socket::Socket;
 use crate::network::tcp_server::TcpServer;
+use crate::service::ShouldInterruptType;
 use crate::transmission::protocol::text_transmission::{ReadText, SendText};
+use crate::transmission::text::TextTransmission;
+use crate::util::shared_mutable::SharedMutable;
 use std::io;
 use std::io::ErrorKind::WouldBlock;
 use std::net::SocketAddr;
 use std::thread::sleep;
 use std::time::Duration;
-use crate::service::ShouldInterruptType;
-use crate::transmission::text::TextTransmission;
-use crate::util::shared_mutable::SharedMutable;
 
 pub type OnReceiveType = Box<dyn Fn(String, &SocketAddr) + Send + Sync>;
 pub type SubscriberType = SharedMutable<Vec<OnReceiveType>>;
@@ -47,7 +47,7 @@ impl TextService {
     ) -> Result<(), io::Error> {
         let mut socket = Socket::connect(peer.host(), port, connect_timeout)?;
         let mut tt = TextTransmission::from(&mut socket);
-        tt.send_text(String::from(format!("{}{}", SYNC_PREFIX, text)).as_str())?;
+        tt.send_text(String::from(format!("{}{}", SYNC_PREFIX, text)))?;
         socket.close()?;
         Ok(())
     }
@@ -58,8 +58,7 @@ impl TextService {
         should_interrupt: ShouldInterruptType,
         subscribers: SubscriberType,
     ) -> Result<(), io::Error> {
-        let server_socket = TcpServer::create_and_listen(
-            host, port)?;
+        let server_socket = TcpServer::create_and_listen(host, port)?;
 
         for stream in server_socket.incoming() {
             match stream {
