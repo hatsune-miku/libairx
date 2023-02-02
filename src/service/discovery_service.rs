@@ -3,6 +3,8 @@ use crate::network::peer::Peer;
 use network_interface::{Addr, NetworkInterface, NetworkInterfaceConfig};
 use std::io;
 use std::net::{IpAddr, Ipv4Addr, SocketAddr, UdpSocket};
+use std::thread::sleep;
+use std::time::Duration;
 use crate::service::ShouldInterruptType;
 use crate::util::shared_mutable::SharedMutable;
 
@@ -204,6 +206,7 @@ impl DiscoveryService {
                     if should_interrupt() {
                         break;
                     }
+                    sleep(Duration::from_millis(10));
                     continue;
                 }
                 Err(_) => {

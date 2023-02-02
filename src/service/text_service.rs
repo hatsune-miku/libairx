@@ -6,6 +6,8 @@ use crate::transmission::protocol::text_transmission::{ReadText, SendText};
 use std::io;
 use std::io::ErrorKind::WouldBlock;
 use std::net::SocketAddr;
+use std::thread::sleep;
+use std::time::Duration;
 use crate::service::ShouldInterruptType;
 use crate::transmission::text::TextTransmission;
 use crate::util::shared_mutable::SharedMutable;
@@ -87,6 +89,7 @@ impl TextService {
                     if should_interrupt() {
                         break;
                     }
+                    sleep(Duration::from_millis(10));
                     continue;
                 }
                 Err(_) => {

@@ -20,13 +20,17 @@ struct AirXService *airx_create(uint16_t discovery_service_server_port,
 
 struct AirXService *airx_restore(void);
 
-void airx_lan_discovery_service(struct AirXService *airx_ptr);
+void airx_lan_discovery_service(struct AirXService *airx_ptr, bool (*should_interrupt)(void));
 
-void airx_lan_discovery_service_async(struct AirXService *airx_ptr);
+void airx_lan_discovery_service_async(struct AirXService *airx_ptr, bool (*should_interrupt)(void));
 
-void airx_text_service(struct AirXService *airx_ptr, void (*callback)(const char *));
+void airx_text_service(struct AirXService *airx_ptr,
+                       void (*callback)(const char*),
+                       bool (*should_interrupt)(void));
 
-void airx_text_service_async(struct AirXService *airx_ptr, void (*callback)(const char *));
+void airx_text_service_async(struct AirXService *airx_ptr,
+                             void (*callback)(const char*),
+                             bool (*should_interrupt)(void));
 
 bool airx_lan_broadcast(struct AirXService *airx_ptr);
 
