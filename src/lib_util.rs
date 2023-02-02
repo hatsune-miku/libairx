@@ -1,3 +1,5 @@
+use std::ffi::c_char;
+
 pub struct PointerWrapper<T> {
     ptr: *mut T,
 }
@@ -20,4 +22,11 @@ impl<T> PointerWrapper<T> {
     pub fn get(&self) -> *mut T {
         self.ptr
     }
+}
+
+// ---
+
+pub fn string_from_lengthed_ptr(ptr: *const c_char, len: u32) -> String {
+    let slice = unsafe { std::slice::from_raw_parts(ptr as *const u8, len as usize) };
+    String::from_utf8_lossy(slice).to_string()
 }

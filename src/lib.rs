@@ -1,11 +1,12 @@
 extern crate core;
 
+use lib_util::string_from_lengthed_ptr;
+
 use crate::lib_util::PointerWrapper;
 use crate::network::peer::Peer;
 use crate::service::airx_service::AirXService;
 use crate::service::discovery_service::DiscoveryService;
 use crate::service::text_service::TextService;
-use std::ffi::CStr;
 use std::os::raw::c_char;
 use std::ptr::copy;
 use std::time::Duration;
@@ -44,14 +45,15 @@ pub unsafe extern "C" fn airx_create_service(
     discovery_service_server_port: u16,
     discovery_service_client_port: u16,
     text_service_listen_addr: *mut c_char,
+    text_service_listen_addr_len: u32,
     text_service_listen_port: u16,
-) -> *mut AirXService<'static> {
-    let addr = CStr::from_ptr(text_service_listen_addr);
+) -> *mut AirXService {
+    let addr = string_from_lengthed_ptr(text_service_listen_addr, text_service_listen_addr_len);
 
     let config = service::airx_service::AirXServiceConfig {
         discovery_service_server_port,
         discovery_service_client_port,
-        text_service_listen_addr: addr.to_str().unwrap(),
+        text_service_listen_addr: addr,
         text_service_listen_port,
     };
     let airx = AirXService::new(&config);
@@ -64,7 +66,7 @@ pub unsafe extern "C" fn airx_create_service(
 
 #[allow(dead_code)]
 #[export_name = "airx_restore"]
-pub unsafe extern "C" fn airx_restore_service() -> *mut AirXService<'static> {
+pub unsafe extern "C" fn airx_restore_service() -> *mut AirXService {
     AIRX_SERVICE
 }
 
@@ -109,7 +111,7 @@ pub extern "C" fn airx_lan_discovery_service_async(
 #[export_name = "airx_text_service"]
 pub extern "C" fn airx_text_service(
     airx_ptr: *mut AirXService,
-    callback: extern "C" fn(*const c_char),
+    callback: extern "C" fn(*const c_char, u32),
     should_interrupt: extern "C" fn() -> bool,
 ) {
     let airx = unsafe { &mut *airx_ptr };
@@ -120,14 +122,14 @@ pub extern "C" fn airx_text_service(
 
     service_text.subscribe(Box::new(move |msg, _| {
         let c_str_ptr = msg.as_ptr();
-        callback(c_str_ptr as *const c_char); // u8 to i8
+        callback(c_str_ptr as *const c_char, msg.len() as u32); // u8 to i8
     }));
 
     let subscribers_ptr = service_text.subscribers();
     drop(service_text);
 
     let _ = TextService::run(
-        config.text_service_listen_addr,
+        config.text_service_listen_addr.as_str(),
         config.text_service_listen_port,
         Box::new(move || should_interrupt()),
         subscribers_ptr,
@@ -138,7 +140,7 @@ pub extern "C" fn airx_text_service(
 #[export_name = "airx_text_service_async"]
 pub extern "C" fn airx_text_service_async(
     airx_ptr: &'static mut AirXService,
-    callback: extern "C" fn(*const c_char),
+    callback: extern "C" fn(*const c_char, u32),
     should_interrupt: extern "C" fn() -> bool,
 ) {
     let wrapper = PointerWrapper::new(airx_ptr);
@@ -201,25 +203,19 @@ pub extern "C" fn airx_start_auto_broadcast(airx_ptr: &'static mut AirXService) 
 pub extern "C" fn airx_send_text(
     airx_ptr: *mut AirXService,
     host: *const c_char,
+    host_len: u32,
     text: *mut c_char,
+    text_len: u32,
 ) {
     let airx = unsafe { &mut *airx_ptr };
     let config = airx.config();
     let service_text = airx.text_service();
-    let text = unsafe { CStr::from_ptr(text) };
-    let text = text.to_str();
-    let text = match text {
-        Ok(text) => text.to_string(),
-        Err(_) => return,
-    };
+    let text = string_from_lengthed_ptr(text, text_len);
+    let host = string_from_lengthed_ptr(host, host_len);
 
-    let peer_address = match unsafe { CStr::from_ptr(host) }.to_str() {
-        Ok(peer) => peer,
-        Err(_) => return,
-    };
     if let Ok(locked) = service_text.clone().lock() {
         let _ = locked.send(
-            &Peer::new(&peer_address.to_string(), config.text_service_listen_port),
+            &Peer::new(&host, config.text_service_listen_port),
             config.text_service_listen_port,
             &text,
             Duration::from_secs(1),
@@ -229,17 +225,13 @@ pub extern "C" fn airx_send_text(
 
 #[allow(dead_code)]
 #[export_name = "airx_broadcast_text"]
-pub extern "C" fn airx_broadcast_text(airx_ptr: *mut AirXService, text: *mut c_char) {
+pub extern "C" fn airx_broadcast_text(airx_ptr: *mut AirXService, text: *mut c_char, len: u32) {
     let airx = unsafe { &mut *airx_ptr };
     let config = airx.config();
     let service_text = airx.text_service();
     let service_disc = airx.discovery_service();
-    let text = unsafe { CStr::from_ptr(text) };
-    let text = text.to_str();
-    let text = match text {
-        Ok(text) => text.to_string(),
-        Err(_) => return,
-    };
+
+    let text = string_from_lengthed_ptr(text, len);
 
     if let Ok(locked) = service_disc.clone().lock() {
         if let Ok(peers_ptr) = locked.peers().lock() {
