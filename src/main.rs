@@ -3,16 +3,15 @@ mod service;
 mod transmission;
 mod util;
 
-use std::borrow::Borrow;
+use crate::service::discovery_service::DiscoveryService;
+use crate::service::text_service::TextService;
+use crate::util::shared_mutable::SharedMutable;
 use service::airx_service;
+use std::borrow::Borrow;
 use std::env;
 use std::mem::size_of;
 use std::thread::sleep;
 use std::time::Duration;
-use crate::service::discovery_service::DiscoveryService;
-use crate::service::text_service::TextService;
-use crate::util::shared_mutable::SharedMutable;
-
 
 fn test() {
     let config = airx_service::AirXServiceConfig {
@@ -21,8 +20,7 @@ fn test() {
         text_service_listen_addr: "0.0.0.0",
         text_service_listen_port: 9819,
     };
-    let airx = airx_service::AirXService::new(&config)
-        .expect("Failed to create AirX service.");
+    let airx = airx_service::AirXService::new(&config).expect("Failed to create AirX service.");
     let service_disc = airx.discovery_service();
     let service_text = airx.text_service();
 
@@ -54,11 +52,18 @@ fn test() {
         sleep(Duration::from_secs(1));
 
         println!("Peers:");
-        service_disc.access().peers().access().iter().for_each(|peer| {
-            println!("Peer: {}", peer);
-        });
+        service_disc
+            .access()
+            .peers()
+            .access()
+            .iter()
+            .for_each(|peer| {
+                println!("Peer: {}", peer);
+            });
 
-        service_disc.access().broadcast_discovery_request()
+        service_disc
+            .access()
+            .broadcast_discovery_request()
             .expect("Failed to broadcast discovery request.");
     }
 }

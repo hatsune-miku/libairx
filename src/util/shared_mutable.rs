@@ -16,13 +16,11 @@ impl<T> Clone for SharedMutable<T> {
     }
 }
 
-
 unsafe impl<T> Send for SharedMutable<T> {}
 
 unsafe impl<T> Sync for SharedMutable<T> {}
 
 impl<T: RefUnwindSafe + Sized> UnwindSafe for SharedMutable<T> {}
-
 
 impl<T> SharedMutable<T> {
     pub fn new(value: T) -> Self {

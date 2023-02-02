@@ -1,18 +1,17 @@
-use std::collections::HashSet;
 use crate::network::peer::Peer;
+use crate::service::ShouldInterruptType;
+use crate::util::shared_mutable::SharedMutable;
 use network_interface::{Addr, NetworkInterface, NetworkInterfaceConfig};
+use std::collections::HashSet;
 use std::io;
 use std::net::{IpAddr, Ipv4Addr, SocketAddr, UdpSocket};
 use std::thread::sleep;
 use std::time::Duration;
-use crate::service::ShouldInterruptType;
-use crate::util::shared_mutable::SharedMutable;
 
 const BUF_SIZE: usize = 512;
 const HANDSHAKE_MESSAGE: &'static str = "Hi There! 👋 \\^O^/";
 
 pub type PeerSetType = SharedMutable<HashSet<Peer>>;
-
 
 trait Broadcast {
     fn to_broadcast_addr(&self) -> Ipv4Addr;
@@ -157,7 +156,6 @@ impl DiscoveryService {
         self.peer_set_ptr.clone()
     }
 
-
     pub fn handle_new_peer(
         server_socket: &UdpSocket,
         peer_set: PeerSetType,
@@ -165,7 +163,6 @@ impl DiscoveryService {
         size: usize,
         peer_addr: &SocketAddr,
     ) {
-
         // From self?
         if let Ok(addr) = server_socket.local_addr() {
             if peer_addr.ip() == addr.ip() {
@@ -192,14 +189,24 @@ impl DiscoveryService {
         }
     }
 
-    pub fn run(server_port: u16, peer_set_ptr: PeerSetType, should_interrupt: ShouldInterruptType) -> Result<(), io::Error> {
+    pub fn run(
+        server_port: u16,
+        peer_set_ptr: PeerSetType,
+        should_interrupt: ShouldInterruptType,
+    ) -> Result<(), io::Error> {
         let server_socket = Self::create_broadcast_socket(server_port)?;
         let mut buf: [u8; BUF_SIZE] = [0u8; BUF_SIZE];
 
         loop {
             match server_socket.recv_from(&mut buf) {
                 Ok((size, peer_addr)) => {
-                    Self::handle_new_peer(&server_socket, peer_set_ptr.clone(), &buf, size, &peer_addr);
+                    Self::handle_new_peer(
+                        &server_socket,
+                        peer_set_ptr.clone(),
+                        &buf,
+                        size,
+                        &peer_addr,
+                    );
                 }
                 Err(ref e) if e.kind() == io::ErrorKind::WouldBlock => {
                     // Check if interrupted.

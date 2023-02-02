@@ -1,7 +1,7 @@
-use std::io;
 use crate::service::discovery_service::DiscoveryService;
 use crate::service::text_service::TextService;
 use crate::util::shared_mutable::SharedMutable;
+use std::io;
 
 pub struct AirXServiceConfig<'a> {
     pub discovery_service_server_port: u16,
