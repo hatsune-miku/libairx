@@ -176,6 +176,7 @@ pub extern "C" fn airx_get_peers(airx_ptr: *mut AirXService, buffer: *mut c_char
 
             unsafe {
                 copy(bytes.as_ptr(), buffer as *mut u8, bytes.len());
+                *buffer.offset(bytes.len() as isize) = 0;
             }
             return bytes.len() as u32;
         }

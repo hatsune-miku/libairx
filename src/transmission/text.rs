@@ -43,7 +43,6 @@ impl text_transmission::ReadText for TextTransmission<'_> {
         let mut size_buf: [u8; 8] = [0u8; 8];
 
         self.socket.read_exact(&mut size_buf)?;
-
         let size = usize::from_ne_bytes(size_buf);
 
         let mut buf = vec![0u8; size];

@@ -6,6 +6,7 @@ mod util;
 use std::borrow::Borrow;
 use service::airx_service;
 use std::env;
+use std::mem::size_of;
 use std::thread::sleep;
 use std::time::Duration;
 use crate::service::discovery_service::DiscoveryService;

@@ -1,7 +1,6 @@
 use crate::network::peer::Peer;
 use crate::network::socket::Socket;
 use crate::network::tcp_server::TcpServer;
-use crate::transmission;
 use crate::transmission::protocol::text_transmission::{ReadText, SendText};
 use std::io;
 use std::io::ErrorKind::WouldBlock;
@@ -44,10 +43,10 @@ impl TextService {
         peer: &Peer,
         port: u16,
         text: &String,
-        connect_timeout: core::time::Duration,
+        connect_timeout: Duration,
     ) -> Result<(), io::Error> {
         let mut socket = Socket::connect(peer.host(), port, connect_timeout)?;
-        let mut tt = transmission::text::TextTransmission::from(&mut socket);
+        let mut tt = TextTransmission::from(&mut socket);
         tt.send_text(String::from(format!("{}{}", SYNC_PREFIX, text)).as_str())?;
         socket.close()?;
         Ok(())
