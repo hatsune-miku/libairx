@@ -16,6 +16,7 @@ bool airx_is_first_run(void);
 struct AirXService *airx_create(uint16_t discovery_service_server_port,
                                 uint16_t discovery_service_client_port,
                                 char *text_service_listen_addr,
+                                uint32_t text_service_listen_addr_len,
                                 uint16_t text_service_listen_port);
 
 struct AirXService *airx_restore(void);
@@ -25,11 +26,11 @@ void airx_lan_discovery_service(struct AirXService *airx_ptr, bool (*should_inte
 void airx_lan_discovery_service_async(struct AirXService *airx_ptr, bool (*should_interrupt)(void));
 
 void airx_text_service(struct AirXService *airx_ptr,
-                       void (*callback)(const char*),
+                       void (*callback)(const char*, uint32_t),
                        bool (*should_interrupt)(void));
 
 void airx_text_service_async(struct AirXService *airx_ptr,
-                             void (*callback)(const char*),
+                             void (*callback)(const char*, uint32_t),
                              bool (*should_interrupt)(void));
 
 bool airx_lan_broadcast(struct AirXService *airx_ptr);
@@ -38,6 +39,10 @@ uint32_t airx_get_peers(struct AirXService *airx_ptr, char *buffer);
 
 void airx_start_auto_broadcast(struct AirXService *airx_ptr);
 
-void airx_send_text(struct AirXService *airx_ptr, const char *host, char *text);
+void airx_send_text(struct AirXService *airx_ptr,
+                    const char *host,
+                    uint32_t host_len,
+                    char *text,
+                    uint32_t text_len);
 
-void airx_broadcast_text(struct AirXService *airx_ptr, char *text);
+void airx_broadcast_text(struct AirXService *airx_ptr, char *text, uint32_t len);
