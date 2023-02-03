@@ -182,7 +182,7 @@ impl DiscoveryService {
 
     pub fn broadcast_discovery_request(client_port: u16, server_port: u16) -> Result<(), io::Error> {
         let client_socket = Self::create_broadcast_socket(client_port)?;
-        let handshake_string_bytes = PACKET_NICE_TO_MEET_YOU_TOO.as_bytes();
+        let handshake_string_bytes = PACKET_NICE_TO_MEET_YOU.as_bytes();
         let broadcast_addresses = match scan_broadcast_addresses() {
             Ok(x) => x,
             Err(e) => {
