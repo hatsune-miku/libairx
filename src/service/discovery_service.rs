@@ -244,6 +244,7 @@ impl DiscoveryService {
         let _ = Self::broadcast_discovery_request(client_port, server_port);
 
         loop {
+            // TODO: performance issue
             match server_socket.recv_from(&mut buf) {
                 Ok((size, peer_addr)) => {
                     Self::handle_new_peer(
@@ -263,7 +264,7 @@ impl DiscoveryService {
                     continue;
                 }
                 Err(_) => {
-                    break;
+                    continue;
                 }
             }
         }
