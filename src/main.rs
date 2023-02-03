@@ -30,6 +30,7 @@ fn test() {
     std::thread::spawn(move || {
         println!("Discovery service started.");
         let _ = DiscoveryService::run(
+            config.discovery_service_client_port,
             config.discovery_service_server_port,
             peers_ptr,
             Box::new(|| true),

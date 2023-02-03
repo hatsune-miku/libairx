@@ -20,13 +20,11 @@ mod util;
 static mut FIRST_RUN: bool = true;
 static mut AIRX_SERVICE: *mut AirXService = std::ptr::null_mut();
 
-#[allow(dead_code)]
 #[export_name = "airx_version"]
 pub extern "C" fn airx_version() -> i32 {
     20230129
 }
 
-#[allow(dead_code)]
 #[export_name = "airx_is_first_run"]
 pub extern "C" fn is_first_run() -> bool {
     unsafe {
@@ -39,7 +37,6 @@ pub extern "C" fn is_first_run() -> bool {
     }
 }
 
-#[allow(dead_code)]
 #[export_name = "airx_create"]
 pub unsafe extern "C" fn airx_create_service(
     discovery_service_server_port: u16,
@@ -64,13 +61,11 @@ pub unsafe extern "C" fn airx_create_service(
     AIRX_SERVICE
 }
 
-#[allow(dead_code)]
 #[export_name = "airx_restore"]
 pub unsafe extern "C" fn airx_restore_service() -> *mut AirXService {
     AIRX_SERVICE
 }
 
-#[allow(dead_code)]
 #[export_name = "airx_lan_discovery_service"]
 pub extern "C" fn airx_lan_discovery_service(
     airx_ptr: *mut AirXService,
@@ -86,6 +81,7 @@ pub extern "C" fn airx_lan_discovery_service(
     drop(service_disc);
 
     let _ = DiscoveryService::run(
+        config.discovery_service_client_port,
         config.discovery_service_server_port,
         peers_ptr,
         Box::new(move || should_interrupt()),
@@ -93,7 +89,6 @@ pub extern "C" fn airx_lan_discovery_service(
 }
 
 // `&'static` mut is actually a pointer type.
-#[allow(dead_code)]
 #[export_name = "airx_lan_discovery_service_async"]
 pub extern "C" fn airx_lan_discovery_service_async(
     airx_ptr: &'static mut AirXService,
@@ -107,7 +102,6 @@ pub extern "C" fn airx_lan_discovery_service_async(
     });
 }
 
-#[allow(dead_code)]
 #[export_name = "airx_text_service"]
 pub extern "C" fn airx_text_service(
     airx_ptr: *mut AirXService,
@@ -136,7 +130,6 @@ pub extern "C" fn airx_text_service(
     );
 }
 
-#[allow(dead_code)]
 #[export_name = "airx_text_service_async"]
 pub extern "C" fn airx_text_service_async(
     airx_ptr: &'static mut AirXService,
@@ -150,20 +143,17 @@ pub extern "C" fn airx_text_service_async(
     });
 }
 
-#[allow(dead_code)]
+#[deprecated]
 #[export_name = "airx_lan_broadcast"]
 pub extern "C" fn airx_lan_broadcast(airx_ptr: *mut AirXService) -> bool {
     let airx = unsafe { &mut *airx_ptr };
-    let service_disc = airx.discovery_service();
-    let x = if let Ok(locked) = service_disc.lock() {
-        locked.broadcast_discovery_request().is_ok()
-    } else {
-        false
-    };
-    x
+    let config = airx.config();
+    DiscoveryService::broadcast_discovery_request(
+        config.discovery_service_client_port,
+        config.discovery_service_server_port,
+    ).is_ok()
 }
 
-#[allow(dead_code)]
 #[export_name = "airx_get_peers"]
 pub extern "C" fn airx_get_peers(
     airx_ptr: *mut AirXService,
@@ -191,7 +181,8 @@ pub extern "C" fn airx_get_peers(
     0
 }
 
-#[allow(dead_code)]
+#[allow(deprecated)]
+#[deprecated]
 #[export_name = "airx_start_auto_broadcast"]
 pub extern "C" fn airx_start_auto_broadcast(airx_ptr: &'static mut AirXService) {
     let airx = &mut *airx_ptr;
@@ -201,7 +192,6 @@ pub extern "C" fn airx_start_auto_broadcast(airx_ptr: &'static mut AirXService) 
     });
 }
 
-#[allow(dead_code)]
 #[export_name = "airx_send_text"]
 pub extern "C" fn airx_send_text(
     airx_ptr: *mut AirXService,
@@ -226,7 +216,6 @@ pub extern "C" fn airx_send_text(
     }
 }
 
-#[allow(dead_code)]
 #[export_name = "airx_broadcast_text"]
 pub extern "C" fn airx_broadcast_text(
     airx_ptr: *mut AirXService,

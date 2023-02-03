@@ -30,11 +30,7 @@ pub struct AirXService {
 impl AirXService {
     pub fn new(config: &AirXServiceConfig) -> Result<Self, io::Error> {
         // Create services.
-        let discovery_service = DiscoveryService::new(
-            config.discovery_service_server_port,
-            config.discovery_service_client_port,
-        )?;
-
+        let discovery_service = DiscoveryService::new()?;
         let text_service = TextService::new();
 
         Ok(Self {

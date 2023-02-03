@@ -9,7 +9,10 @@ use std::thread::sleep;
 use std::time::Duration;
 
 const BUF_SIZE: usize = 512;
-const HANDSHAKE_MESSAGE: &'static str = "Hi There! 👋 \\^O^/";
+
+// Memory leak should be strictly avoided or users may get some strange texts.
+const PACKET_NICE_TO_MEET_YOU: &'static str = "\\另立天地宇宙/";
+const PACKET_NICE_TO_MEET_YOU_TOO: &'static str = "\\分封乐园伊甸/";
 
 pub type PeerSetType = SharedMutable<HashSet<Peer>>;
 
@@ -84,16 +87,12 @@ fn scan_broadcast_addresses() -> Result<HashSet<Ipv4Addr>, network_interface::Er
 }
 
 pub struct DiscoveryService {
-    server_port: u16,
-    client_port: u16,
     peer_set_ptr: PeerSetType,
 }
 
 impl DiscoveryService {
-    pub fn new(server_port: u16, client_port: u16) -> Result<Self, io::Error> {
+    pub fn new() -> Result<Self, io::Error> {
         Ok(Self {
-            server_port,
-            client_port,
             peer_set_ptr: SharedMutable::new(HashSet::new()),
         })
     }
@@ -108,58 +107,6 @@ impl DiscoveryService {
             }
             Err(e) => Err(e),
         }
-    }
-
-    pub fn broadcast_discovery_request(&self) -> Result<(), io::Error> {
-        let client_socket = Self::create_broadcast_socket(self.client_port)?;
-        let handshake_string_bytes = HANDSHAKE_MESSAGE.as_bytes();
-        let broadcast_addresses = match scan_broadcast_addresses() {
-            Ok(x) => x,
-            Err(e) => {
-                return Err(io::Error::new(
-                    io::ErrorKind::Other,
-                    format!("Failed to get broadcast addresses: {}", e),
-                ));
-            }
-        };
-
-        //
-        //     ==================================
-        //     For current network interface only
-        //     ==================================
-        //
-        //      fn get_local_ipv4_address(socket: &UdpSocket) -> Result<Ipv4Addr, io::Error> {
-        //          let ip = socket.local_addr()?.ip();
-        //          if let IpAddr::V4(ip) = ip {
-        //              Ok(ip)
-        //          } else {
-        //              Err(io::Error::new(
-        //                  io::ErrorKind::Other,
-        //                  "Local address is not an IPv4 address.",
-        //              ))
-        //          }
-        //      }
-        //
-        //     let local_ip = get_local_ipv4_address(client_socket)?;
-        //     let broadcast_address = IpAddr::V4(
-        //         Ipv4Addr::new(
-        //             local_ip.octets()[0] | 0b11111111,
-        //             local_ip.octets()[1] | 0b11111111,
-        //             local_ip.octets()[2] | 0b11111111,
-        //             local_ip.octets()[3] | 0b11111111,
-        //         )
-        //     );
-        //     let target_address = SocketAddr::new(broadcast_address, server_port as u16);
-        //
-
-        for addr in broadcast_addresses.iter() {
-            let broadcast_addr = SocketAddr::new(IpAddr::from(addr.octets()), self.server_port);
-            if let Err(_) = client_socket.send_to(handshake_string_bytes, broadcast_addr) {
-                continue;
-            }
-        }
-
-        Ok(())
     }
 
     pub fn peers(&self) -> PeerSetType {
@@ -210,16 +157,22 @@ impl DiscoveryService {
 
         // Not handshake message?
         let message = String::from_utf8(Vec::from(&buf[..size]));
-        match message {
-            Ok(x) => {
-                if &x != HANDSHAKE_MESSAGE {
-                    return;
-                }
-            }
+        let message = match message {
+            Ok(x) => x,
             Err(_) => {
                 // Client sent invalid message.
                 return;
             }
+        };
+
+        if message.as_str() == PACKET_NICE_TO_MEET_YOU {
+            // Respond to our new friend!
+            let _ = server_socket.send_to(PACKET_NICE_TO_MEET_YOU.as_bytes(), peer_addr);
+        } else if message.as_str() == PACKET_NICE_TO_MEET_YOU_TOO {
+            // 好，很有精神！
+        } else {
+            // Client sent invalid message.
+            return;
         }
 
         if let Ok(mut locked) = peer_set.lock() {
@@ -227,13 +180,68 @@ impl DiscoveryService {
         }
     }
 
+    pub fn broadcast_discovery_request(client_port: u16, server_port: u16) -> Result<(), io::Error> {
+        let client_socket = Self::create_broadcast_socket(client_port)?;
+        let handshake_string_bytes = PACKET_NICE_TO_MEET_YOU_TOO.as_bytes();
+        let broadcast_addresses = match scan_broadcast_addresses() {
+            Ok(x) => x,
+            Err(e) => {
+                return Err(io::Error::new(
+                    io::ErrorKind::Other,
+                    format!("Failed to get broadcast addresses: {}", e),
+                ));
+            }
+        };
+
+        //
+        //     ==================================
+        //     For current network interface only
+        //     ==================================
+        //
+        //      fn get_local_ipv4_address(socket: &UdpSocket) -> Result<Ipv4Addr, io::Error> {
+        //          let ip = socket.local_addr()?.ip();
+        //          if let IpAddr::V4(ip) = ip {
+        //              Ok(ip)
+        //          } else {
+        //              Err(io::Error::new(
+        //                  io::ErrorKind::Other,
+        //                  "Local address is not an IPv4 address.",
+        //              ))
+        //          }
+        //      }
+        //
+        //     let local_ip = get_local_ipv4_address(client_socket)?;
+        //     let broadcast_address = IpAddr::V4(
+        //         Ipv4Addr::new(
+        //             local_ip.octets()[0] | 0b11111111,
+        //             local_ip.octets()[1] | 0b11111111,
+        //             local_ip.octets()[2] | 0b11111111,
+        //             local_ip.octets()[3] | 0b11111111,
+        //         )
+        //     );
+        //     let target_address = SocketAddr::new(broadcast_address, server_port as u16);
+        //
+
+        for addr in broadcast_addresses.iter() {
+            let broadcast_addr = SocketAddr::new(IpAddr::from(addr.octets()), server_port);
+            if let Err(_) = client_socket.send_to(handshake_string_bytes, broadcast_addr) {
+                continue;
+            }
+        }
+
+        Ok(())
+    }
+
     pub fn run(
+        client_port: u16,
         server_port: u16,
         peer_set_ptr: PeerSetType,
         should_interrupt: ShouldInterruptType,
     ) -> Result<(), io::Error> {
         let server_socket = Self::create_broadcast_socket(server_port)?;
         let mut buf: [u8; BUF_SIZE] = [0u8; BUF_SIZE];
+
+        let _ = Self::broadcast_discovery_request(client_port, server_port);
 
         loop {
             match server_socket.recv_from(&mut buf) {
