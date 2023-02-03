@@ -152,6 +152,7 @@ impl DiscoveryService {
         };
 
         if local_addr_ipv4 == peer_addr_ipv4 || local_addresses.contains(&peer_addr_ipv4) {
+            println!("Ignoring peer {} because it's from us.", peer_addr);
             return;
         }
 
@@ -168,6 +169,7 @@ impl DiscoveryService {
         if message.as_str() == PACKET_NICE_TO_MEET_YOU {
             // Respond to our new friend!
             let _ = server_socket.send_to(PACKET_NICE_TO_MEET_YOU_TOO.as_bytes(), peer_addr);
+            println!("Responded to peer {}.", peer_addr);
         } else if message.as_str() == PACKET_NICE_TO_MEET_YOU_TOO {
             // 好，很有精神！
         } else {
