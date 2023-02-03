@@ -119,6 +119,7 @@ impl DiscoveryService {
         buf: &[u8; BUF_SIZE],
         size: usize,
         peer_addr: &SocketAddr,
+        server_port: u16,
     ) {
         // From self?
         let local_addr = match server_socket.local_addr() {
@@ -152,7 +153,6 @@ impl DiscoveryService {
         };
 
         if local_addr_ipv4 == peer_addr_ipv4 || local_addresses.contains(&peer_addr_ipv4) {
-            println!("Ignoring peer {} because it's from us.", peer_addr);
             return;
         }
 
@@ -168,8 +168,11 @@ impl DiscoveryService {
 
         if message.as_str() == PACKET_NICE_TO_MEET_YOU {
             // Respond to our new friend!
-            let _ = server_socket.send_to(PACKET_NICE_TO_MEET_YOU_TOO.as_bytes(), peer_addr);
-            println!("Responded to peer {}.", peer_addr);
+            let _ = server_socket.send_to(PACKET_NICE_TO_MEET_YOU_TOO.as_bytes(), {
+                let mut peer_server_addr = peer_addr.clone();
+                peer_server_addr.set_port(server_port);
+                peer_server_addr
+            });
         } else if message.as_str() == PACKET_NICE_TO_MEET_YOU_TOO {
             // 好，很有精神！
         } else {
@@ -255,6 +258,7 @@ impl DiscoveryService {
                         &buf,
                         size,
                         &peer_addr,
+                        server_port,
                     );
                 }
                 Err(ref e) if e.kind() == io::ErrorKind::WouldBlock => {
