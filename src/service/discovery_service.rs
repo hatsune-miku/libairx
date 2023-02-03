@@ -167,7 +167,7 @@ impl DiscoveryService {
 
         if message.as_str() == PACKET_NICE_TO_MEET_YOU {
             // Respond to our new friend!
-            let _ = server_socket.send_to(PACKET_NICE_TO_MEET_YOU.as_bytes(), peer_addr);
+            let _ = server_socket.send_to(PACKET_NICE_TO_MEET_YOU_TOO.as_bytes(), peer_addr);
         } else if message.as_str() == PACKET_NICE_TO_MEET_YOU_TOO {
             // 好，很有精神！
         } else {
