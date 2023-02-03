@@ -151,7 +151,7 @@ impl DiscoveryService {
             }
         };
 
-        if local_addresses.contains(&local_addr_ipv4) || local_addresses.contains(&peer_addr_ipv4) {
+        if local_addr_ipv4 == peer_addr_ipv4 || local_addresses.contains(&peer_addr_ipv4) {
             return;
         }
 
