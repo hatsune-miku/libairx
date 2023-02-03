@@ -55,7 +55,17 @@ impl Broadcast for Addr {
     }
 }
 
-fn get_broadcast_addresses() -> Result<HashSet<Ipv4Addr>, network_interface::Error> {
+fn scan_local_addresses() -> Result<HashSet<Ipv4Addr>, network_interface::Error> {
+    Ok(NetworkInterface::show()?
+        .iter()
+        .filter(|i| i.addr.is_some() && i.addr.unwrap().ip().is_ipv4())
+        .map(|i| i.addr.unwrap().ip().to_ipv4_addr().unwrap())
+        .filter(|ip| !ip.is_loopback())
+        .collect::<HashSet<Ipv4Addr>>()
+    )
+}
+
+fn scan_broadcast_addresses() -> Result<HashSet<Ipv4Addr>, network_interface::Error> {
     let fallback = Ipv4Addr::new(255, 255, 255, 255);
     Ok(NetworkInterface::show()?
         .iter()
@@ -92,7 +102,7 @@ impl DiscoveryService {
         match UdpSocket::bind(format!("0.0.0.0:{}", port)) {
             Ok(s) => {
                 s.set_nonblocking(true)?; // non-blocking mode (for recv_from)
-                s.set_read_timeout(Some(std::time::Duration::from_millis(1000)))?;
+                s.set_read_timeout(Some(Duration::from_millis(1000)))?;
                 s.set_broadcast(true)?;
                 Ok(s)
             }
@@ -103,7 +113,7 @@ impl DiscoveryService {
     pub fn broadcast_discovery_request(&self) -> Result<(), io::Error> {
         let client_socket = Self::create_broadcast_socket(self.client_port)?;
         let handshake_string_bytes = HANDSHAKE_MESSAGE.as_bytes();
-        let broadcast_addresses = match get_broadcast_addresses() {
+        let broadcast_addresses = match scan_broadcast_addresses() {
             Ok(x) => x,
             Err(e) => {
                 return Err(io::Error::new(
@@ -164,10 +174,38 @@ impl DiscoveryService {
         peer_addr: &SocketAddr,
     ) {
         // From self?
-        if let Ok(addr) = server_socket.local_addr() {
-            if peer_addr.ip() == addr.ip() {
+        let local_addr = match server_socket.local_addr() {
+            Ok(x) => x,
+            Err(_) => {
                 return;
             }
+        };
+
+        let local_addresses = match scan_local_addresses() {
+            Ok(x) => x,
+            Err(_) => {
+                return;
+            }
+        };
+
+        // Accept only IPv4 peer addresses
+        let peer_addr_ipv4 = match peer_addr.ip() {
+            IpAddr::V4(ip) => ip,
+            IpAddr::V6(_) => {
+                return;
+            }
+        };
+
+        // Accept only IPv4 local addresses
+        let local_addr_ipv4 = match local_addr.ip() {
+            IpAddr::V4(ip) => ip,
+            IpAddr::V6(_) => {
+                return;
+            }
+        };
+
+        if local_addresses.contains(&local_addr_ipv4) || local_addresses.contains(&peer_addr_ipv4) {
+            return;
         }
 
         // Not handshake message?

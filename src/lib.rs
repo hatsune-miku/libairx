@@ -165,7 +165,10 @@ pub extern "C" fn airx_lan_broadcast(airx_ptr: *mut AirXService) -> bool {
 
 #[allow(dead_code)]
 #[export_name = "airx_get_peers"]
-pub extern "C" fn airx_get_peers(airx_ptr: *mut AirXService, buffer: *mut c_char) -> u32 {
+pub extern "C" fn airx_get_peers(
+    airx_ptr: *mut AirXService,
+    buffer: *mut c_char,
+) -> u32 {
     let airx = unsafe { &mut *airx_ptr };
     let service_disc = airx.discovery_service();
 
@@ -225,7 +228,11 @@ pub extern "C" fn airx_send_text(
 
 #[allow(dead_code)]
 #[export_name = "airx_broadcast_text"]
-pub extern "C" fn airx_broadcast_text(airx_ptr: *mut AirXService, text: *mut c_char, len: u32) {
+pub extern "C" fn airx_broadcast_text(
+    airx_ptr: *mut AirXService,
+    text: *mut c_char,
+    len: u32,
+) {
     let airx = unsafe { &mut *airx_ptr };
     let config = airx.config();
     let service_text = airx.text_service();
