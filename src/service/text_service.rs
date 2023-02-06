@@ -96,7 +96,7 @@ impl TextService {
                     // Check if timeout.
                     if timeout_counter > TCP_ACCEPT_TIMEOUT_COUNT && should_interrupt() {
                         timeout_counter = 0;
-                        break;
+                        continue;
                     }
 
                     timeout_counter += 1;
