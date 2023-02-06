@@ -2,8 +2,6 @@
 
 [![Rust](https://github.com/hatsune-miku/libairx/actions/workflows/rust.yml/badge.svg)](https://github.com/hatsune-miku/libairx/actions/workflows/rust.yml)
 
----
-
 - Fast & Lightweight
     - Written in pure Rust.
     - Plaintext transmission [1].
@@ -16,7 +14,7 @@
 [1] It's possible to implement some end-to-end encryption on top of this library to achieve
 better security.
 
-[接口文档](https://github.com/hatsune-miku/libairx/wiki)
+[API Documentation](https://github.com/hatsune-miku/libairx/wiki)
 
 ---
 
