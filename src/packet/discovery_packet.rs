@@ -60,9 +60,12 @@ impl Error for DiscoveryPacketError {}
 // 没有50年功力的人，不要轻易使用这个哈希算法，极易遭到反噬。
 fn packet_hash(address: Ipv4Addr, server_port: u16, group_identity: u8) -> u16 {
     (
-        (address.octets().iter().sum::<u8>() as u16)
-            + server_port
-            + (group_identity as u16)
+        (address.octets()[0] as u16)
+            .wrapping_add(address.octets()[1] as u16)
+            .wrapping_add(address.octets()[2] as u16)
+            .wrapping_add(address.octets()[3] as u16)
+            .wrapping_add(server_port)
+            .wrapping_add(group_identity as u16)
     ) / 3
 }
 
@@ -76,9 +79,9 @@ impl Hash<u16> for DiscoveryPacket {
 impl Serialize<[u8; PACKET_SIZE], DiscoveryPacketError> for DiscoveryPacket {
     fn serialize(&self) -> [u8; PACKET_SIZE] {
         let mut bytes = [0u8; PACKET_SIZE];
-        bytes[0..=1].copy_from_slice(&self.magic_number.to_be_bytes());
+        bytes[0..=1].copy_from_slice(&self.magic_number.to_bytes());
         bytes[2..=5].copy_from_slice(&self.sender_address.octets());
-        bytes[6..=7].copy_from_slice(&self.server_port.to_be_bytes());
+        bytes[6..=7].copy_from_slice(&self.server_port.to_bytes());
         bytes[8] = self.group_identity;
         bytes[9] = if self.need_response { 0b0000_0001 } else { 0b0000_0000 };
         bytes[10..=11].copy_from_slice(

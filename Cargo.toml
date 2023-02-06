@@ -2,6 +2,8 @@
 name = "airx"
 version = "0.1.0"
 edition = "2021"
+authors = ["Zhen Guan", "Shijunyi Liu", "Jiabao Guo", "Chang Guan"]
+description = "Core library of AirX, the fast, reliable and lightweight sync tool."
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
@@ -9,4 +11,6 @@ edition = "2021"
 network-interface = "0.1.6"
 
 [lib]
-crate-type = ["cdylib"]
+crate-type = ["cdylib", "rlib"]
+path = "src/lib.rs"
+name = "airx"

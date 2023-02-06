@@ -59,9 +59,10 @@ impl Hash<HashType> for TextPacket {
 
 impl Serialize<Vec<u8>, TextPacketError> for TextPacket {
     fn serialize(&self) -> Vec<u8> {
+        let text_bytes = self.text.as_bytes();
         let mut ret = Vec::with_capacity(
-            self.text.len() + size_of::<StringLenType>());
-        ret.extend_from_slice(self.text.as_bytes());
+            text_bytes.len() + size_of::<StringLenType>());
+        ret.extend_from_slice(&text_bytes);
         ret.extend_from_slice(&text_hash(&self.text).to_bytes());
         ret
     }

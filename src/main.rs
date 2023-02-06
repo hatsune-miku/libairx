@@ -1,26 +1,16 @@
-extern crate core;
-
-mod network;
-mod service;
-mod packet;
-mod util;
-mod compatibility;
-
-use crate::service::discovery_service::DiscoveryService;
-use crate::service::text_service::TextService;
-use service::airx_service;
-use std::thread::sleep;
-use std::time::Duration;
+use airx::service::airx_service::{AirXService, AirXServiceConfig};
+use airx::service::discovery_service::DiscoveryService;
+use airx::service::text_service::TextService;
 
 fn test() {
-    let config = airx_service::AirXServiceConfig {
+    let config = AirXServiceConfig {
         discovery_service_server_port: 9818,
         discovery_service_client_port: 0,
         text_service_listen_addr: String::from("0.0.0.0"),
         text_service_listen_port: 9819,
         group_identity: 0,
     };
-    let airx = airx_service::AirXService::new(&config).expect("Failed to create AirX service.");
+    let airx = AirXService::new(&config).expect("Failed to create AirX service.");
     let service_disc = airx.discovery_service();
     let service_text = airx.text_service();
 
@@ -49,22 +39,9 @@ fn test() {
         );
         println!("Text service stopped.")
     });
-
-    loop {
-        sleep(Duration::from_secs(1));
-
-        println!("Peers:");
-        service_disc
-            .access()
-            .peers()
-            .access()
-            .iter()
-            .for_each(|peer| {
-                println!("Peer: {}", peer);
-            });
-    }
 }
 
 fn main() {
     test();
 }
+

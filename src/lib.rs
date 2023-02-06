@@ -1,6 +1,6 @@
 extern crate core;
 
-use lib_util::string_from_lengthed_ptr;
+use lib_util::string_from_lengthen_ptr;
 
 use crate::lib_util::PointerWrapper;
 use crate::network::peer::Peer;
@@ -11,12 +11,12 @@ use std::os::raw::c_char;
 use std::ptr::copy;
 use std::time::Duration;
 
-mod lib_util;
-mod network;
-mod service;
-mod packet;
-mod util;
-mod compatibility;
+pub mod lib_util;
+pub mod network;
+pub mod service;
+pub mod packet;
+pub mod util;
+pub mod compatibility;
 
 static mut FIRST_RUN: bool = true;
 static mut AIRX_SERVICE: *mut AirXService = std::ptr::null_mut();
@@ -47,7 +47,7 @@ pub unsafe extern "C" fn airx_create_service(
     text_service_listen_port: u16,
     group_identity: u8,
 ) -> *mut AirXService {
-    let addr = string_from_lengthed_ptr(text_service_listen_addr, text_service_listen_addr_len);
+    let addr = string_from_lengthen_ptr(text_service_listen_addr, text_service_listen_addr_len);
 
     let config = service::airx_service::AirXServiceConfig {
         discovery_service_server_port,
@@ -208,8 +208,8 @@ pub extern "C" fn airx_send_text(
     let airx = unsafe { &mut *airx_ptr };
     let config = airx.config();
     let service_text = airx.text_service();
-    let text = string_from_lengthed_ptr(text, text_len);
-    let host = string_from_lengthed_ptr(host, host_len);
+    let text = string_from_lengthen_ptr(text, text_len);
+    let host = string_from_lengthen_ptr(host, host_len);
 
     if let Ok(locked) = service_text.clone().lock() {
         let _ = locked.send(
@@ -232,7 +232,7 @@ pub extern "C" fn airx_broadcast_text(
     let service_text = airx.text_service();
     let service_disc = airx.discovery_service();
 
-    let text = string_from_lengthed_ptr(text, len);
+    let text = string_from_lengthen_ptr(text, len);
 
     if let Ok(locked) = service_disc.clone().lock() {
         if let Ok(peers_ptr) = locked.peers().lock() {
