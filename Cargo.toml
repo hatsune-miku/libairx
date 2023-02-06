@@ -12,5 +12,3 @@ network-interface = "0.1.6"
 
 [lib]
 crate-type = ["cdylib", "rlib"]
-path = "src/lib.rs"
-name = "airx"
