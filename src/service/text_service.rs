@@ -6,7 +6,7 @@ use crate::packet::protocol::text_transmission::{ReadText, SendText};
 use crate::packet::text::TextTransmission;
 use crate::util::shared_mutable::SharedMutable;
 use std::io;
-use std::io::ErrorKind::WouldBlock;
+use std::io::ErrorKind::{TimedOut, WouldBlock};
 use std::net::SocketAddr;
 use std::thread::sleep;
 use std::time::Duration;
@@ -15,6 +15,9 @@ pub type OnReceiveType = Box<dyn Fn(String, &SocketAddr) + Send + Sync>;
 pub type SubscriberType = SharedMutable<Vec<OnReceiveType>>;
 
 static SYNC_PREFIX: &'static str = "SYNC:";
+
+const TCP_ACCEPT_WAIT_MILLIS: u64 = 10;
+const TCP_ACCEPT_TIMEOUT_COUNT: u64 = 100;
 
 #[allow(dead_code)]
 pub struct TextService {
@@ -54,6 +57,7 @@ impl TextService {
         Ok(())
     }
 
+    #[allow(unused_assignments)]
     pub fn run(
         host: &str,
         port: u16,
@@ -61,6 +65,7 @@ impl TextService {
         subscribers: SubscriberType,
     ) -> Result<(), io::Error> {
         let server_socket = TcpServer::create_and_listen(host, port)?;
+        let mut timeout_counter = 0;
 
         for stream in server_socket.incoming() {
             match stream {
@@ -84,12 +89,17 @@ impl TextService {
                         }
                     }
                 }
-                Err(ref e) if e.kind() == WouldBlock => {
+                Err(ref e) if e.kind() == WouldBlock || e.kind() == TimedOut => {
                     // Check if interrupted.
-                    if should_interrupt() {
+                    sleep(Duration::from_millis(TCP_ACCEPT_WAIT_MILLIS));
+
+                    // Check if timeout.
+                    if timeout_counter > TCP_ACCEPT_TIMEOUT_COUNT && should_interrupt() {
+                        timeout_counter = 0;
                         break;
                     }
-                    sleep(Duration::from_millis(10));
+
+                    timeout_counter += 1;
                     continue;
                 }
                 Err(_) => {

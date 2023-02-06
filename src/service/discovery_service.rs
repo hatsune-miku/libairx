@@ -4,12 +4,14 @@ use crate::util::shared_mutable::SharedMutable;
 use network_interface::{Addr, NetworkInterface, NetworkInterfaceConfig};
 use std::collections::HashSet;
 use std::io;
+use std::io::ErrorKind::{TimedOut, WouldBlock};
 use std::net::{IpAddr, Ipv4Addr, SocketAddr, SocketAddrV4, UdpSocket};
-use std::thread::sleep;
 use std::time::Duration;
 use crate::packet::discovery_packet;
 use crate::packet::discovery_packet::DiscoveryPacket;
 use crate::packet::protocol::serialize::Serialize;
+
+const DISCOVERY_TIMEOUT_MILLIS: u64 = 1000;
 
 pub type PeerSetType = SharedMutable<HashSet<Peer>>;
 
@@ -107,8 +109,7 @@ impl DiscoveryService {
     pub fn create_broadcast_socket(port: u16) -> Result<UdpSocket, io::Error> {
         match UdpSocket::bind(format!("0.0.0.0:{}", port)) {
             Ok(s) => {
-                s.set_nonblocking(true)?; // non-blocking mode (for recv_from)
-                s.set_read_timeout(Some(Duration::from_millis(1000)))?;
+                s.set_read_timeout(Some(Duration::from_millis(DISCOVERY_TIMEOUT_MILLIS)))?;
                 s.set_broadcast(true)?;
                 Ok(s)
             }
@@ -245,7 +246,6 @@ impl DiscoveryService {
         let _ = Self::broadcast_discovery_request(client_port, server_port, group_identity);
 
         loop {
-            // TODO: performance issue
             match server_socket.recv(&mut buf) {
                 Ok(_) => {
                     let _ = Self::handle_new_peer(
@@ -255,12 +255,13 @@ impl DiscoveryService {
                         group_identity,
                     );
                 }
-                Err(ref e) if e.kind() == io::ErrorKind::WouldBlock => {
+                Err(ref e) if e.kind() == WouldBlock || e.kind() == TimedOut => {
                     // Check if interrupted.
+                    // Calling should_interrupt() is
+                    // expensive for some frontends like electron.
                     if should_interrupt() {
                         break;
                     }
-                    sleep(Duration::from_millis(10));
                     continue;
                 }
                 Err(_) => {
