@@ -85,16 +85,6 @@ fn scan_broadcast_addresses() -> Result<HashSet<Ipv4Addr>, network_interface::Er
         .collect::<HashSet<Ipv4Addr>>())
 }
 
-fn ensure_ipv4_local_address(socket: &UdpSocket) -> Result<Ipv4Addr, io::Error> {
-    match socket.local_addr()? {
-        SocketAddr::V4(addr) => Ok(addr.ip().clone()),
-        SocketAddr::V6(_) => Err(io::Error::new(
-            io::ErrorKind::Other,
-            "IPv6 not supported",
-        )),
-    }
-}
-
 pub struct DiscoveryService {
     peer_set_ptr: PeerSetType,
 }
@@ -127,21 +117,20 @@ impl DiscoveryService {
         buf: [u8; discovery_packet::PACKET_SIZE],
         group_identity: u8,
     ) -> Result<(), Box<dyn std::error::Error>> {
-        // Local address available?
-        let local_addr_ipv4 = ensure_ipv4_local_address(&server_socket)?;
-
         // From self?
         let local_addresses = scan_local_addresses()?;
+        println!("Local addresses: {:?}", local_addresses);
 
         // Deserialize packet.
         // Not handshake message?
         let packet = DiscoveryPacket::deserialize(buf)?;
+        println!("Received packet: {:?}", packet.group_identity());
 
         let sender_address = packet.sender_address();
+        println!("Sender address: {}", sender_address);
 
 
-        if local_addr_ipv4 == sender_address
-            || local_addresses.contains(&sender_address) {
+        if local_addresses.contains(&sender_address) {
             return Err("Received packet from self".into());
         }
 
@@ -151,18 +140,22 @@ impl DiscoveryService {
             return Err("Group identity mismatch".into());
         }
 
+        println!("Received packet from {}", sender_address);
+
         if packet.need_response() {
             // Respond to our new friend!
-            let response_packet = DiscoveryPacket::new(
-                local_addr_ipv4,
-                packet.server_port(),
-                group_identity,
-                false,
-            );
-            let _ = server_socket.send_to(
-                &response_packet.serialize(),
-                SocketAddrV4::new(packet.sender_address(), packet.server_port()),
-            );
+            for local_addr_ipv4 in local_addresses {
+                let response_packet = DiscoveryPacket::new(
+                    local_addr_ipv4,
+                    packet.server_port(),
+                    group_identity,
+                    false,
+                );
+                let _ = server_socket.send_to(
+                    &response_packet.serialize(),
+                    SocketAddrV4::new(packet.sender_address(), packet.server_port()),
+                );
+            }
         }
 
         if let Ok(mut locked) = peer_set.lock() {
@@ -183,16 +176,31 @@ impl DiscoveryService {
                 ));
             }
         };
+        let local_addresses = match scan_local_addresses() {
+            Ok(x) => x,
+            Err(e) => {
+                return Err(io::Error::new(
+                    io::ErrorKind::Other,
+                    format!("Failed to get local addresses: {}", e),
+                ));
+            }
+        };
 
-        let local_addr_ipv4 = ensure_ipv4_local_address(&client_socket)?;
-
-        let broadcast_packet = DiscoveryPacket::new(
-            local_addr_ipv4,
-            server_port,
-            group_identity,
-            true,
-        );
-        let broadcast_packet_bytes = broadcast_packet.serialize();
+        for local_addr_ipv4 in local_addresses {
+            for broadcast_addr_ipv4 in &broadcast_addresses {
+                let broadcast_packet = DiscoveryPacket::new(
+                    local_addr_ipv4,
+                    server_port,
+                    group_identity,
+                    true,
+                );
+                let broadcast_packet_bytes = broadcast_packet.serialize();
+                let _ = client_socket.send_to(
+                    &broadcast_packet_bytes,
+                    SocketAddrV4::new(*broadcast_addr_ipv4, server_port),
+                );
+            }
+        }
 
         //
         //     ==================================
@@ -222,13 +230,6 @@ impl DiscoveryService {
         //     );
         //     let target_address = SocketAddr::new(broadcast_address, server_port as u16);
         //
-
-        for addr in broadcast_addresses.iter() {
-            let broadcast_addr = SocketAddr::new(IpAddr::from(addr.octets()), server_port);
-            if let Err(_) = client_socket.send_to(&broadcast_packet_bytes, broadcast_addr) {
-                continue;
-            }
-        }
 
         Ok(())
     }
