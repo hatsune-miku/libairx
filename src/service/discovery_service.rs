@@ -265,7 +265,7 @@ impl DiscoveryService {
                     continue;
                 }
                 Err(_) => {
-                    continue;
+                    break;
                 }
             }
         }
