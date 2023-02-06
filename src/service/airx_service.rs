@@ -8,6 +8,7 @@ pub struct AirXServiceConfig {
     pub discovery_service_client_port: u16,
     pub text_service_listen_addr: String,
     pub text_service_listen_port: u16,
+    pub group_identity: u8,
 }
 
 impl Clone for AirXServiceConfig {
@@ -17,16 +18,19 @@ impl Clone for AirXServiceConfig {
             discovery_service_client_port: self.discovery_service_client_port,
             text_service_listen_addr: self.text_service_listen_addr.clone(),
             text_service_listen_port: self.text_service_listen_port,
+            group_identity: self.group_identity,
         }
     }
 }
 
+#[allow(dead_code)]
 pub struct AirXService {
     config: AirXServiceConfig,
     text_service: SharedMutable<TextService>,
     discovery_service: SharedMutable<DiscoveryService>,
 }
 
+#[allow(dead_code)]
 impl AirXService {
     pub fn new(config: &AirXServiceConfig) -> Result<Self, io::Error> {
         // Create services.

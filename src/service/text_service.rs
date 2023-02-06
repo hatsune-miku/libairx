@@ -2,8 +2,8 @@ use crate::network::peer::Peer;
 use crate::network::socket::Socket;
 use crate::network::tcp_server::TcpServer;
 use crate::service::ShouldInterruptType;
-use crate::transmission::protocol::text_transmission::{ReadText, SendText};
-use crate::transmission::text::TextTransmission;
+use crate::packet::protocol::text_transmission::{ReadText, SendText};
+use crate::packet::text::TextTransmission;
 use crate::util::shared_mutable::SharedMutable;
 use std::io;
 use std::io::ErrorKind::WouldBlock;
@@ -16,10 +16,12 @@ pub type SubscriberType = SharedMutable<Vec<OnReceiveType>>;
 
 static SYNC_PREFIX: &'static str = "SYNC:";
 
+#[allow(dead_code)]
 pub struct TextService {
     subscribers_ptr: SubscriberType,
 }
 
+#[allow(dead_code)]
 impl TextService {
     pub fn new() -> Self {
         Self {

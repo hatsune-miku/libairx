@@ -14,8 +14,9 @@ use std::time::Duration;
 mod lib_util;
 mod network;
 mod service;
-mod transmission;
+mod packet;
 mod util;
+mod compatibility;
 
 static mut FIRST_RUN: bool = true;
 static mut AIRX_SERVICE: *mut AirXService = std::ptr::null_mut();
@@ -44,6 +45,7 @@ pub unsafe extern "C" fn airx_create_service(
     text_service_listen_addr: *mut c_char,
     text_service_listen_addr_len: u32,
     text_service_listen_port: u16,
+    group_identity: u8,
 ) -> *mut AirXService {
     let addr = string_from_lengthed_ptr(text_service_listen_addr, text_service_listen_addr_len);
 
@@ -52,6 +54,7 @@ pub unsafe extern "C" fn airx_create_service(
         discovery_service_client_port,
         text_service_listen_addr: addr,
         text_service_listen_port,
+        group_identity,
     };
     let airx = AirXService::new(&config);
     AIRX_SERVICE = match airx {
@@ -85,6 +88,7 @@ pub extern "C" fn airx_lan_discovery_service(
         config.discovery_service_server_port,
         peers_ptr,
         Box::new(move || should_interrupt()),
+        config.group_identity,
     );
 }
 
@@ -151,6 +155,7 @@ pub extern "C" fn airx_lan_broadcast(airx_ptr: *mut AirXService) -> bool {
     DiscoveryService::broadcast_discovery_request(
         config.discovery_service_client_port,
         config.discovery_service_server_port,
+        config.group_identity,
     ).is_ok()
 }
 

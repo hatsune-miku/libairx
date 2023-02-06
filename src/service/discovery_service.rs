@@ -4,15 +4,12 @@ use crate::util::shared_mutable::SharedMutable;
 use network_interface::{Addr, NetworkInterface, NetworkInterfaceConfig};
 use std::collections::HashSet;
 use std::io;
-use std::net::{IpAddr, Ipv4Addr, SocketAddr, UdpSocket};
+use std::net::{IpAddr, Ipv4Addr, SocketAddr, SocketAddrV4, UdpSocket};
 use std::thread::sleep;
 use std::time::Duration;
-
-const BUF_SIZE: usize = 512;
-
-// Memory leak should be strictly avoided or users may get some strange texts.
-const PACKET_NICE_TO_MEET_YOU: &'static str = "\\另立天地宇宙/";
-const PACKET_NICE_TO_MEET_YOU_TOO: &'static str = "\\分封乐园伊甸/";
+use crate::packet::discovery_packet;
+use crate::packet::discovery_packet::DiscoveryPacket;
+use crate::packet::protocol::serialize::Serialize;
 
 pub type PeerSetType = SharedMutable<HashSet<Peer>>;
 
@@ -86,6 +83,16 @@ fn scan_broadcast_addresses() -> Result<HashSet<Ipv4Addr>, network_interface::Er
         .collect::<HashSet<Ipv4Addr>>())
 }
 
+fn ensure_ipv4_local_address(socket: &UdpSocket) -> Result<Ipv4Addr, io::Error> {
+    match socket.local_addr()? {
+        SocketAddr::V4(addr) => Ok(addr.ip().clone()),
+        SocketAddr::V6(_) => Err(io::Error::new(
+            io::ErrorKind::Other,
+            "IPv6 not supported",
+        )),
+    }
+}
+
 pub struct DiscoveryService {
     peer_set_ptr: PeerSetType,
 }
@@ -116,78 +123,56 @@ impl DiscoveryService {
     pub fn handle_new_peer(
         server_socket: &UdpSocket,
         peer_set: PeerSetType,
-        buf: &[u8; BUF_SIZE],
-        size: usize,
-        peer_addr: &SocketAddr,
-        server_port: u16,
-    ) {
+        buf: [u8; discovery_packet::PACKET_SIZE],
+        group_identity: u8,
+    ) -> Result<(), Box<dyn std::error::Error>> {
+        // Local address available?
+        let local_addr_ipv4 = ensure_ipv4_local_address(&server_socket)?;
+
         // From self?
-        let local_addr = match server_socket.local_addr() {
-            Ok(x) => x,
-            Err(_) => {
-                return;
-            }
-        };
+        let local_addresses = scan_local_addresses()?;
 
-        let local_addresses = match scan_local_addresses() {
-            Ok(x) => x,
-            Err(_) => {
-                return;
-            }
-        };
+        // Deserialize packet.
+        // Not handshake message?
+        let packet = DiscoveryPacket::deserialize(buf)?;
 
-        // Accept only IPv4 peer addresses
-        let peer_addr_ipv4 = match peer_addr.ip() {
-            IpAddr::V4(ip) => ip,
-            IpAddr::V6(_) => {
-                return;
-            }
-        };
+        let sender_address = packet.sender_address();
 
-        // Accept only IPv4 local addresses
-        let local_addr_ipv4 = match local_addr.ip() {
-            IpAddr::V4(ip) => ip,
-            IpAddr::V6(_) => {
-                return;
-            }
-        };
 
-        if local_addr_ipv4 == peer_addr_ipv4 || local_addresses.contains(&peer_addr_ipv4) {
-            return;
+        if local_addr_ipv4 == sender_address
+            || local_addresses.contains(&sender_address) {
+            return Err("Received packet from self".into());
         }
 
-        // Not handshake message?
-        let message = String::from_utf8(Vec::from(&buf[..size]));
-        let message = match message {
-            Ok(x) => x,
-            Err(_) => {
-                // Client sent invalid message.
-                return;
-            }
-        };
 
-        if message.as_str() == PACKET_NICE_TO_MEET_YOU {
+        if packet.group_identity() != group_identity {
+            // Group identity mismatch.
+            return Err("Group identity mismatch".into());
+        }
+
+        if packet.need_response() {
             // Respond to our new friend!
-            let _ = server_socket.send_to(PACKET_NICE_TO_MEET_YOU_TOO.as_bytes(), {
-                let mut peer_server_addr = peer_addr.clone();
-                peer_server_addr.set_port(server_port);
-                peer_server_addr
-            });
-        } else if message.as_str() == PACKET_NICE_TO_MEET_YOU_TOO {
-            // 好，很有精神！
-        } else {
-            // Client sent invalid message.
-            return;
+            let response_packet = DiscoveryPacket::new(
+                local_addr_ipv4,
+                packet.server_port(),
+                group_identity,
+                false,
+            );
+            let _ = server_socket.send_to(
+                &response_packet.serialize(),
+                SocketAddrV4::new(packet.sender_address(), packet.server_port()),
+            );
         }
 
         if let Ok(mut locked) = peer_set.lock() {
-            locked.insert(Peer::from(&peer_addr));
+            locked.insert(Peer::from(&sender_address, packet.server_port()));
         }
+
+        Ok(())
     }
 
-    pub fn broadcast_discovery_request(client_port: u16, server_port: u16) -> Result<(), io::Error> {
+    pub fn broadcast_discovery_request(client_port: u16, server_port: u16, group_identity: u8) -> Result<(), io::Error> {
         let client_socket = Self::create_broadcast_socket(client_port)?;
-        let handshake_string_bytes = PACKET_NICE_TO_MEET_YOU.as_bytes();
         let broadcast_addresses = match scan_broadcast_addresses() {
             Ok(x) => x,
             Err(e) => {
@@ -197,6 +182,16 @@ impl DiscoveryService {
                 ));
             }
         };
+
+        let local_addr_ipv4 = ensure_ipv4_local_address(&client_socket)?;
+
+        let broadcast_packet = DiscoveryPacket::new(
+            local_addr_ipv4,
+            server_port,
+            group_identity,
+            true,
+        );
+        let broadcast_packet_bytes = broadcast_packet.serialize();
 
         //
         //     ==================================
@@ -229,7 +224,7 @@ impl DiscoveryService {
 
         for addr in broadcast_addresses.iter() {
             let broadcast_addr = SocketAddr::new(IpAddr::from(addr.octets()), server_port);
-            if let Err(_) = client_socket.send_to(handshake_string_bytes, broadcast_addr) {
+            if let Err(_) = client_socket.send_to(&broadcast_packet_bytes, broadcast_addr) {
                 continue;
             }
         }
@@ -242,23 +237,22 @@ impl DiscoveryService {
         server_port: u16,
         peer_set_ptr: PeerSetType,
         should_interrupt: ShouldInterruptType,
+        group_identity: u8,
     ) -> Result<(), io::Error> {
         let server_socket = Self::create_broadcast_socket(server_port)?;
-        let mut buf: [u8; BUF_SIZE] = [0u8; BUF_SIZE];
+        let mut buf: [u8; discovery_packet::PACKET_SIZE] = [0u8; discovery_packet::PACKET_SIZE];
 
-        let _ = Self::broadcast_discovery_request(client_port, server_port);
+        let _ = Self::broadcast_discovery_request(client_port, server_port, group_identity);
 
         loop {
             // TODO: performance issue
-            match server_socket.recv_from(&mut buf) {
-                Ok((size, peer_addr)) => {
-                    Self::handle_new_peer(
+            match server_socket.recv(&mut buf) {
+                Ok(_) => {
+                    let _ = Self::handle_new_peer(
                         &server_socket,
                         peer_set_ptr.clone(),
-                        &buf,
-                        size,
-                        &peer_addr,
-                        server_port,
+                        buf,
+                        group_identity,
                     );
                 }
                 Err(ref e) if e.kind() == io::ErrorKind::WouldBlock => {

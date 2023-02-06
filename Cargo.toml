@@ -1,5 +1,5 @@
 [package]
-name = "libairx"
+name = "airx"
 version = "0.1.0"
 edition = "2021"
 
@@ -10,4 +10,3 @@ network-interface = "0.1.6"
 
 [lib]
 crate-type = ["cdylib"]
-name = "airx"

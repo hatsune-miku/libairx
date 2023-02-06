@@ -1,8 +1,9 @@
 use std::fmt;
 use std::hash::Hash;
-use std::net::SocketAddr;
+use std::net::{Ipv4Addr};
 
 #[derive(Eq, Clone)]
+#[allow(dead_code)]
 pub struct Peer {
     host: String,
     port: u16,
@@ -30,11 +31,12 @@ impl PartialEq for Peer {
     }
 }
 
+#[allow(dead_code)]
 impl Peer {
-    pub fn from(socket_addr: &SocketAddr) -> Self {
+    pub fn from(socket_addr: &Ipv4Addr, port: u16) -> Self {
         Self {
-            host: socket_addr.ip().to_string().into(),
-            port: socket_addr.port(),
+            host: socket_addr.to_string(),
+            port,
         }
     }
 

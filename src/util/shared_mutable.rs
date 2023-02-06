@@ -22,6 +22,7 @@ unsafe impl<T> Sync for SharedMutable<T> {}
 
 impl<T: RefUnwindSafe + Sized> UnwindSafe for SharedMutable<T> {}
 
+#[allow(dead_code)]
 impl<T> SharedMutable<T> {
     pub fn new(value: T) -> Self {
         SharedMutable {
@@ -32,7 +33,6 @@ impl<T> SharedMutable<T> {
     ///
     /// Unwrap immediately no matter lock is acquired or not.
     ///
-    #[allow(dead_code)]
     pub fn access(&self) -> MutexGuard<'_, T> {
         self.value.lock().unwrap()
     }
@@ -40,7 +40,6 @@ impl<T> SharedMutable<T> {
     ///
     /// Blocks until the lock is acquired.
     ///
-    #[allow(dead_code)]
     pub fn lock(&self) -> LockResult<MutexGuard<'_, T>> {
         self.value.lock()
     }
@@ -49,7 +48,6 @@ impl<T> SharedMutable<T> {
     /// Try picking up the lock to see if it's locked.
     /// If accidentally acquired the lock, it will be unlocked immediately.
     ///
-    #[allow(dead_code)]
     pub fn locked(&self) -> bool {
         match self.value.try_lock() {
             Ok(mutex_guard) => {

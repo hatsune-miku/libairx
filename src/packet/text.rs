@@ -1,6 +1,10 @@
 use crate::network::socket;
-use crate::transmission::protocol::text_transmission;
+use crate::packet::protocol::text_transmission;
 use std::{io, usize};
+use std::mem::size_of;
+use crate::compatibility::unified_endian::UnifiedEndian;
+use crate::packet::protocol::serialize::Serialize;
+use crate::packet::text_packet::TextPacket;
 
 pub const LENGTH_PRESERVE_SIZE: usize = 16;
 pub const MESSAGE_MAX_SIZE: usize = (2 << (LENGTH_PRESERVE_SIZE - 1)) - 1;
@@ -15,11 +19,20 @@ impl<'a> TextTransmission<'a> {
     }
 }
 
+const USIZE_SIZE: usize = size_of::<usize>();
+
 impl text_transmission::SendText for TextTransmission<'_> {
     fn send_text(&mut self, message: String) -> Result<usize, io::Error> {
         // Strings are already utf8 encoded.
-        let bytes = message.as_bytes();
-        let len = bytes.len();
+        let packet = match TextPacket::new(message) {
+            Ok(x) => x,
+            Err(e) => return Err(
+                io::Error::new(
+                    io::ErrorKind::Other, e)),
+        };
+        let packet_bytes = packet.serialize();
+        let bytes = packet_bytes.as_slice();
+        let len: usize = bytes.len();
 
         if len >= MESSAGE_MAX_SIZE {
             return Err(io::Error::new(
@@ -28,11 +41,9 @@ impl text_transmission::SendText for TextTransmission<'_> {
             ));
         }
 
-        let mut buf = vec![0u8; 8 + len];
-
-        // First 16 bits for packet size.
-        buf[0..8].copy_from_slice(len.to_ne_bytes().as_slice());
-        buf[8..].copy_from_slice(bytes);
+        let mut buf = vec![0u8; USIZE_SIZE + len];
+        buf[0..USIZE_SIZE].copy_from_slice(len.to_bytes().as_slice());
+        buf[USIZE_SIZE..].copy_from_slice(bytes);
 
         self.socket.send(&buf)
     }
@@ -40,20 +51,17 @@ impl text_transmission::SendText for TextTransmission<'_> {
 
 impl text_transmission::ReadText for TextTransmission<'_> {
     fn read_text(&mut self) -> Result<String, io::Error> {
-        let mut size_buf: [u8; 8] = [0u8; 8];
+        let mut size_buf: [u8; USIZE_SIZE] = [0u8; USIZE_SIZE];
 
         self.socket.read_exact(&mut size_buf)?;
-        let size = usize::from_ne_bytes(size_buf);
+        let size = usize::from_bytes(size_buf);
 
         let mut buf = vec![0u8; size];
         self.socket.read_exact(&mut buf)?;
 
-        match String::from_utf8(buf) {
-            Ok(s) => Ok(s),
-            Err(e) => Err(io::Error::new(
-                io::ErrorKind::Other,
-                format!("Invalid UTF-8 sequence: {}", e),
-            )),
+        match TextPacket::deserialize(buf) {
+            Ok(x) => Ok(x.text),
+            Err(e) => Err(io::Error::new(io::ErrorKind::Other, e)),
         }
     }
 }
