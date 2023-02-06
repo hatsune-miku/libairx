@@ -94,9 +94,11 @@ impl TextService {
                     sleep(Duration::from_millis(TCP_ACCEPT_WAIT_MILLIS));
 
                     // Check if timeout.
-                    if timeout_counter > TCP_ACCEPT_TIMEOUT_COUNT && should_interrupt() {
+                    if timeout_counter > TCP_ACCEPT_TIMEOUT_COUNT {
                         timeout_counter = 0;
-                        continue;
+                        if should_interrupt {
+                            break;
+                        }
                     }
 
                     timeout_counter += 1;
