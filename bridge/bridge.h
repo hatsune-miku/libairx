@@ -7,6 +7,8 @@
 
 #define MESSAGE_MAX_SIZE ((2 << (LENGTH_PRESERVE_SIZE - 1)) - 1)
 
+#define PACKET_SIZE 12
+
 typedef struct AirXService AirXService;
 
 int32_t airx_version(void);
@@ -17,7 +19,8 @@ struct AirXService *airx_create(uint16_t discovery_service_server_port,
                                 uint16_t discovery_service_client_port,
                                 char *text_service_listen_addr,
                                 uint32_t text_service_listen_addr_len,
-                                uint16_t text_service_listen_port);
+                                uint16_t text_service_listen_port,
+                                uint8_t group_identity);
 
 struct AirXService *airx_restore(void);
 
