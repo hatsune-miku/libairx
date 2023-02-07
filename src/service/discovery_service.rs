@@ -145,6 +145,7 @@ impl DiscoveryService {
         if packet.need_response() {
             // Respond to our new friend!
             for local_addr_ipv4 in local_addresses {
+                println!("Responding to {}...", sender_address);
                 let response_packet = DiscoveryPacket::new(
                     local_addr_ipv4,
                     packet.server_port(),

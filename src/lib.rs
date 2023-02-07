@@ -227,6 +227,10 @@ pub extern "C" fn airx_broadcast_text(
     text: *mut c_char,
     len: u32,
 ) {
+    if text == std::ptr::null_mut() || len < 1 {
+        return;
+    }
+
     let airx = unsafe { &mut *airx_ptr };
     let config = airx.config();
     let service_text = airx.text_service();
