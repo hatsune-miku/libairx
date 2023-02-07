@@ -216,7 +216,7 @@ pub extern "C" fn airx_send_text(
             &Peer::new(&host, config.text_service_listen_port),
             config.text_service_listen_port,
             &text,
-            Duration::from_secs(1),
+            Duration::from_millis(500),
         );
     }
 }
@@ -246,7 +246,7 @@ pub extern "C" fn airx_broadcast_text(
                         peer,
                         config.text_service_listen_port,
                         &text,
-                        Duration::from_secs(1),
+                        Duration::from_millis(500),
                     );
                 }
             }

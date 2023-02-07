@@ -5,7 +5,7 @@ use network_interface::{Addr, NetworkInterface, NetworkInterfaceConfig};
 use std::collections::HashSet;
 use std::io;
 use std::io::ErrorKind::{TimedOut, WouldBlock};
-use std::net::{IpAddr, Ipv4Addr, SocketAddr, SocketAddrV4, UdpSocket};
+use std::net::{IpAddr, Ipv4Addr, SocketAddrV4, UdpSocket};
 use std::time::Duration;
 use crate::packet::discovery_packet;
 use crate::packet::discovery_packet::DiscoveryPacket;
@@ -112,40 +112,29 @@ impl DiscoveryService {
     }
 
     pub fn handle_new_peer(
+        local_addresses: HashSet<Ipv4Addr>,
         server_socket: &UdpSocket,
         peer_set: PeerSetType,
         buf: [u8; discovery_packet::PACKET_SIZE],
         group_identity: u8,
     ) -> Result<(), Box<dyn std::error::Error>> {
         // From self?
-        let local_addresses = scan_local_addresses()?;
-        println!("Local addresses: {:?}", local_addresses);
-
         // Deserialize packet.
         // Not handshake message?
         let packet = DiscoveryPacket::deserialize(buf)?;
-        println!("Received packet: {:?}", packet.group_identity());
-
         let sender_address = packet.sender_address();
-        println!("Sender address: {}", sender_address);
-
-
         if local_addresses.contains(&sender_address) {
             return Err("Received packet from self".into());
         }
-
 
         if packet.group_identity() != group_identity {
             // Group identity mismatch.
             return Err("Group identity mismatch".into());
         }
 
-        println!("Received packet from {}", sender_address);
-
         if packet.need_response() {
-            // Respond to our new friend!
+            // Respond to our new friend on behalf of each local address.
             for local_addr_ipv4 in local_addresses {
-                println!("Responding to {}...", sender_address);
                 let response_packet = DiscoveryPacket::new(
                     local_addr_ipv4,
                     packet.server_port(),
@@ -187,10 +176,10 @@ impl DiscoveryService {
             }
         };
 
-        for local_addr_ipv4 in local_addresses {
-            for broadcast_addr_ipv4 in &broadcast_addresses {
+        for broadcast_addr_ipv4 in &broadcast_addresses {
+            for local_addr_ipv4 in &local_addresses {
                 let broadcast_packet = DiscoveryPacket::new(
-                    local_addr_ipv4,
+                    local_addr_ipv4.clone(),
                     server_port,
                     group_identity,
                     true,
@@ -250,12 +239,15 @@ impl DiscoveryService {
         loop {
             match server_socket.recv(&mut buf) {
                 Ok(_) => {
-                    let _ = Self::handle_new_peer(
-                        &server_socket,
-                        peer_set_ptr.clone(),
-                        buf,
-                        group_identity,
-                    );
+                    if let Ok(local_addresses) = scan_local_addresses() {
+                        let _ = Self::handle_new_peer(
+                            local_addresses,
+                            &server_socket,
+                            peer_set_ptr.clone(),
+                            buf,
+                            group_identity,
+                        );
+                    }
                 }
                 Err(ref e) if e.kind() == WouldBlock || e.kind() == TimedOut => {
                     // Check if interrupted.
