@@ -60,10 +60,9 @@ impl Broadcast for Addr {
 fn scan_local_addresses() -> Result<HashSet<Ipv4Addr>, network_interface::Error> {
     Ok(NetworkInterface::show()?
         .iter()
-        .filter(|i| i.mac_addr.is_some())
         .filter(|i| i.addr.is_some() && i.addr.unwrap().ip().is_ipv4())
         .map(|i| i.addr.unwrap().ip().to_ipv4_addr().unwrap())
-        .filter(|ip| !ip.is_loopback())
+        .filter(|ip| ip.is_private())
         .collect::<HashSet<Ipv4Addr>>()
     )
 }
