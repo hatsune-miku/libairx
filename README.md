@@ -9,7 +9,6 @@
     - Low-cost discovery service.
     - Hash-verified network packets.
     - TCP-based text transmission.
-    - Single-threaded design.
 
 [1] It's possible to implement some end-to-end encryption on top of this library to achieve
 better security.

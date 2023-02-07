@@ -10,6 +10,10 @@ use crate::service::text_service::TextService;
 use std::os::raw::c_char;
 use std::ptr::copy;
 use std::time::Duration;
+use log4rs::append::console::ConsoleAppender;
+use log4rs::Config;
+use log4rs::config::{Appender, Logger, Root};
+use log::{info, LevelFilter};
 
 pub mod lib_util;
 pub mod network;
@@ -47,12 +51,22 @@ pub unsafe extern "C" fn airx_create_service(
     text_service_listen_port: u16,
     group_identity: u8,
 ) -> *mut AirXService {
+    // Init logger.
+    if let Ok(logger_config) = Config::builder()
+        .appender(Appender::builder().build("stdout", Box::new(
+            ConsoleAppender::builder().build()
+        )))
+        .logger(Logger::builder().build("libairx", LevelFilter::Trace))
+        .build(Root::builder().appender("stdout").build(LevelFilter::Trace)) {
+        let _ = log4rs::init_config(logger_config);
+    }
+
     let addr = string_from_lengthen_ptr(text_service_listen_addr, text_service_listen_addr_len);
 
     let config = service::airx_service::AirXServiceConfig {
         discovery_service_server_port,
         discovery_service_client_port,
-        text_service_listen_addr: addr,
+        text_service_listen_addr: addr.clone(),
         text_service_listen_port,
         group_identity,
     };
@@ -61,6 +75,10 @@ pub unsafe extern "C" fn airx_create_service(
         Ok(airx) => Box::into_raw(Box::new(airx)),
         Err(_) => std::ptr::null_mut(),
     };
+
+    info!("lib: AirX service created (addr={}:{},gid={})",
+          addr, text_service_listen_port, group_identity);
+
     AIRX_SERVICE
 }
 
@@ -82,6 +100,11 @@ pub extern "C" fn airx_lan_discovery_service(
     let peers_ptr = service_disc.peers();
 
     drop(service_disc);
+
+    info!("lib: Discovery service starting (cp={},sp={},gid={})",
+          config.discovery_service_client_port,
+          config.discovery_service_server_port,
+          config.group_identity);
 
     let _ = DiscoveryService::run(
         config.discovery_service_client_port,
@@ -125,6 +148,9 @@ pub extern "C" fn airx_text_service(
 
     let subscribers_ptr = service_text.subscribers();
     drop(service_text);
+
+    info!("lib: Text service starting (addr={},port={})",
+          config.text_service_listen_addr, config.text_service_listen_port);
 
     let _ = TextService::run(
         config.text_service_listen_addr.as_str(),
@@ -211,6 +237,9 @@ pub extern "C" fn airx_send_text(
     let text = string_from_lengthen_ptr(text, text_len);
     let host = string_from_lengthen_ptr(host, host_len);
 
+    info!("lib: Sending text to (addr={}:{})",
+        host, config.text_service_listen_port);
+
     if let Ok(locked) = service_text.clone().lock() {
         let _ = locked.send(
             &Peer::new(&host, config.text_service_listen_port),
@@ -241,14 +270,22 @@ pub extern "C" fn airx_broadcast_text(
     if let Ok(locked) = service_disc.clone().lock() {
         if let Ok(peers_ptr) = locked.peers().lock() {
             for peer in peers_ptr.iter() {
-                if let Ok(locked) = service_text.lock() {
-                    let _ = locked.send(
-                        peer,
-                        config.text_service_listen_port,
-                        &text,
-                        Duration::from_millis(500),
-                    );
-                }
+                let thread_service_text = service_text.clone();
+                let thread_peer = peer.clone();
+                let thread_config = config.clone();
+                let thread_text = text.clone();
+                std::thread::spawn(move || {
+                    if let Ok(locked) = thread_service_text.lock() {
+                        info!("lib: Sending text to (addr={}:{})",
+                            thread_peer.host(), thread_config.text_service_listen_port);
+                        let _ = locked.send(
+                            &thread_peer,
+                            thread_config.text_service_listen_port,
+                            &thread_text,
+                            Duration::from_millis(500),
+                        );
+                    }
+                });
             }
         }
     }

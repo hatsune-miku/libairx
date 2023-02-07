@@ -7,6 +7,7 @@ use std::io;
 use std::io::ErrorKind::{TimedOut, WouldBlock};
 use std::net::{IpAddr, Ipv4Addr, SocketAddrV4, UdpSocket};
 use std::time::Duration;
+use log::{error, info};
 use crate::packet::discovery_packet;
 use crate::packet::discovery_packet::DiscoveryPacket;
 use crate::packet::protocol::serialize::Serialize;
@@ -90,10 +91,10 @@ pub struct DiscoveryService {
 }
 
 impl DiscoveryService {
-    pub fn new() -> Result<Self, io::Error> {
-        Ok(Self {
+    pub fn new() -> Self {
+        Self {
             peer_set_ptr: SharedMutable::new(HashSet::new()),
-        })
+        }
     }
 
     pub fn create_broadcast_socket(port: u16) -> Result<UdpSocket, io::Error> {
@@ -103,7 +104,10 @@ impl DiscoveryService {
                 s.set_broadcast(true)?;
                 Ok(s)
             }
-            Err(e) => Err(e),
+            Err(e) => {
+                error!("Failed to bind UDP socket: {}", e);
+                Err(e)
+            }
         }
     }
 
@@ -124,16 +128,19 @@ impl DiscoveryService {
         let packet = DiscoveryPacket::deserialize(buf)?;
         let sender_address = packet.sender_address();
         if local_addresses.contains(&sender_address) {
+            info!("Dropped packet from self.");
             return Err("Received packet from self".into());
         }
 
         if packet.group_identity() != group_identity {
             // Group identity mismatch.
+            info!("Dropped packet from different group.");
             return Err("Group identity mismatch".into());
         }
 
         if packet.need_response() {
             // Respond to our new friend on behalf of each local address.
+            info!("Responding to discovery request from {}", sender_address);
             for local_addr_ipv4 in local_addresses {
                 let response_packet = DiscoveryPacket::new(
                     local_addr_ipv4,
@@ -160,6 +167,7 @@ impl DiscoveryService {
         let broadcast_addresses = match scan_broadcast_addresses() {
             Ok(x) => x,
             Err(e) => {
+                error!("Failed to get broadcast addresses: {}", e);
                 return Err(io::Error::new(
                     io::ErrorKind::Other,
                     format!("Failed to get broadcast addresses: {}", e),
@@ -169,6 +177,7 @@ impl DiscoveryService {
         let local_addresses = match scan_local_addresses() {
             Ok(x) => x,
             Err(e) => {
+                error!("Failed to get local addresses: {}", e);
                 return Err(io::Error::new(
                     io::ErrorKind::Other,
                     format!("Failed to get local addresses: {}", e),
@@ -254,6 +263,7 @@ impl DiscoveryService {
                     // Calling should_interrupt() is
                     // expensive for some frontends like electron.
                     if should_interrupt() {
+                        info!("Discovery service interrupted by caller.");
                         break;
                     }
                     continue;

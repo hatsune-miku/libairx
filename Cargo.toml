@@ -9,6 +9,8 @@ description = "Core library of AirX, the fast, reliable and lightweight sync too
 
 [dependencies]
 network-interface = "0.1.6"
+log = "0.4.17"
+log4rs = "1.2.0"
 
 [lib]
 crate-type = ["cdylib", "rlib"]

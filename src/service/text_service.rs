@@ -10,11 +10,10 @@ use std::io::ErrorKind::{TimedOut, WouldBlock};
 use std::net::SocketAddr;
 use std::thread::sleep;
 use std::time::Duration;
+use log::{error, info, warn};
 
 pub type OnReceiveType = Box<dyn Fn(String, &SocketAddr) + Send + Sync>;
 pub type SubscriberType = SharedMutable<Vec<OnReceiveType>>;
-
-static SYNC_PREFIX: &'static str = "SYNC:";
 
 const TCP_ACCEPT_WAIT_MILLIS: u64 = 10;
 const TCP_ACCEPT_TIMEOUT_COUNT: u64 = 100;
@@ -34,7 +33,10 @@ impl TextService {
 
     pub fn subscribe(&mut self, callback: OnReceiveType) {
         if let Ok(mut locked) = self.subscribers_ptr.lock() {
+            info!("A new warrior has entered the ring!");
             locked.push(callback);
+        } else {
+            error!("Failed to subscribe to text service.");
         }
     }
 
@@ -52,7 +54,7 @@ impl TextService {
     ) -> Result<(), io::Error> {
         let mut socket = Socket::connect(peer.host(), port, connect_timeout)?;
         let mut tt = TextTransmission::from(&mut socket);
-        tt.send_text(String::from(format!("{}{}", SYNC_PREFIX, text)))?;
+        tt.send_text(text.clone())?;
         socket.close()?;
         Ok(())
     }
@@ -72,21 +74,22 @@ impl TextService {
                 Ok(stream) => {
                     let socket_addr = match stream.peer_addr() {
                         Ok(addr) => addr,
-                        Err(_) => continue,
+                        Err(_) => {
+                            warn!("Failed to get peer address.");
+                            continue;
+                        }
                     };
                     let mut socket = Socket::from(stream);
                     let mut tt = TextTransmission::from(&mut socket);
-                    if let Ok(s) = tt.read_text() {
-                        if !s.starts_with(SYNC_PREFIX) {
-                            continue;
-                        }
 
-                        let text = String::from(&s[SYNC_PREFIX.len()..]);
+                    if let Ok(s) = tt.read_text() {
                         if let Ok(locked) = subscribers.lock() {
                             for subscriber in locked.iter() {
-                                subscriber(text.clone(), &socket_addr);
+                                subscriber(s.clone(), &socket_addr);
                             }
                         }
+                    } else {
+                        warn!("Failed to read text.");
                     }
                 }
                 Err(ref e) if e.kind() == WouldBlock || e.kind() == TimedOut => {
@@ -97,6 +100,7 @@ impl TextService {
                     if timeout_counter > TCP_ACCEPT_TIMEOUT_COUNT {
                         timeout_counter = 0;
                         if should_interrupt() {
+                            info!("Text service is interrupted by caller.");
                             break;
                         }
                     }
