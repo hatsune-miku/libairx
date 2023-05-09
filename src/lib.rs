@@ -31,7 +31,7 @@ pub extern "C" fn airx_version() -> i32 {
 }
 
 #[export_name = "airx_is_first_run"]
-pub extern "C" fn is_first_run() -> bool {
+pub extern "C" fn airx_is_first_run() -> bool {
     unsafe {
         if FIRST_RUN {
             FIRST_RUN = false;
