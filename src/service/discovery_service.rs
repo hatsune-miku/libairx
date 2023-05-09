@@ -14,7 +14,7 @@ use crate::packet::protocol::serialize::Serialize;
 
 const DISCOVERY_TIMEOUT_MILLIS: u64 = 1000;
 
-pub type PeerSetType = SharedMutable<HashSet<Peer>>;
+pub type PeerCollectionType = SharedMutable<HashSet<Peer>>;
 
 trait Broadcast {
     fn to_broadcast_addr(&self) -> Ipv4Addr;
@@ -87,7 +87,7 @@ fn scan_broadcast_addresses() -> Result<HashSet<Ipv4Addr>, network_interface::Er
 }
 
 pub struct DiscoveryService {
-    peer_set_ptr: PeerSetType,
+    peer_set_ptr: PeerCollectionType,
 }
 
 impl DiscoveryService {
@@ -111,14 +111,14 @@ impl DiscoveryService {
         }
     }
 
-    pub fn peers(&self) -> PeerSetType {
+    pub fn peers(&self) -> PeerCollectionType {
         self.peer_set_ptr.clone()
     }
 
     pub fn handle_new_peer(
         local_addresses: HashSet<Ipv4Addr>,
         server_socket: &UdpSocket,
-        peer_set: PeerSetType,
+        peer_set: PeerCollectionType,
         buf: [u8; discovery_packet::PACKET_SIZE],
         group_identity: u8,
     ) -> Result<(), Box<dyn std::error::Error>> {
@@ -236,7 +236,7 @@ impl DiscoveryService {
     pub fn run(
         client_port: u16,
         server_port: u16,
-        peer_set_ptr: PeerSetType,
+        peer_set_ptr: PeerCollectionType,
         should_interrupt: ShouldInterruptType,
         group_identity: u8,
     ) -> Result<(), io::Error> {
