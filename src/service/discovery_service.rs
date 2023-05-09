@@ -54,14 +54,14 @@ impl Broadcast for Addr {
             ip_octets[i] |= !mask_octets[i];
         }
 
-        Ipv4Addr::new(ip_octets[0], ip_octets[1], ip_octets[2], ip_octets[3])
+        Ipv4Addr::from(ip_octets)
     }
 }
 
 fn scan_local_addresses() -> Result<HashSet<Ipv4Addr>, network_interface::Error> {
     Ok(NetworkInterface::show()?
         .iter()
-        .filter(|i| i.addr.is_some() && i.addr.unwrap().ip().is_ipv4())
+        .filter(|i| i.addr.map_or(false, |a| a.ip().is_ipv4()))
         .map(|i| i.addr.unwrap().ip().to_ipv4_addr().unwrap())
         .filter(|ip| ip.is_private())
         .collect::<HashSet<Ipv4Addr>>()
