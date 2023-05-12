@@ -27,7 +27,7 @@ static mut AIRX_SERVICE: *mut AirXService = std::ptr::null_mut();
 
 #[export_name = "airx_version"]
 pub extern "C" fn airx_version() -> i32 {
-    20230206
+    20230512
 }
 
 #[export_name = "airx_is_first_run"]

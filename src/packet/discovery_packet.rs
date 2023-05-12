@@ -119,6 +119,8 @@ impl Serialize<[u8; PACKET_SIZE], DiscoveryPacketError> for DiscoveryPacket {
     }
 }
 
+// TODO:
+
 impl DiscoveryPacket {
     pub fn new(
         sender_address: Ipv4Addr,
