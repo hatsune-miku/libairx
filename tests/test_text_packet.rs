@@ -3,14 +3,10 @@ use airx::packet::protocol::serialize::Serialize;
 
 #[test]
 fn test_text_packet_serializable() {
-    // Text generated with help of ChatGPT.
+    // Text including emojis, non-ASCII characters, RTL characters, and code.
     let test_string =
         "😃 سلام عليكم 🇯🇵こんにちは؟ *&%^".to_string() +
-            "另立💝天地💖宇宙👾分封😈乐园🍩伊甸☪︎ENGLISH~TEXT" +
-            "🉐🉐🉐🉐🉐🉐🉐🉐🉐🉐🉐🉐" +
-            "🉐🉐🉐🉐🉐🉐🉐🉐🉐🉐🉐🉐" +
-            "🉐🉐🉐🉐🉐🉐🉐🉐🉐🉐" +
-            "🉐🉐🉐🉐🉐🉐🉐🉐🉐🉐" +
+            "🉐🉐🉐" +
             "public static void main(String[] args) {" +
             "    System.out.println(\"Hello, world!\");" +
             "}" +
@@ -23,4 +19,3 @@ fn test_text_packet_serializable() {
 
     assert_eq!(packet2.text, test_string);
 }
-

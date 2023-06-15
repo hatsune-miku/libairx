@@ -29,7 +29,7 @@ static mut AIRX_SERVICE: *mut AirXService = std::ptr::null_mut();
 
 #[export_name = "airx_version"]
 pub extern "C" fn airx_version() -> i32 {
-    20230512
+    20230615
 }
 
 #[export_name = "airx_is_first_run"]
@@ -142,7 +142,7 @@ pub extern "C" fn airx_lan_discovery_service_async(
 #[export_name = "airx_text_service"]
 pub extern "C" fn airx_text_service(
     airx_ptr: *mut AirXService,
-    callback: extern "C" fn(*const c_char, u32),
+    callback: extern "C" fn(*const c_char, u32, *const c_char, u32),
     should_interrupt: extern "C" fn() -> bool,
 ) {
     let airx = unsafe { &mut *airx_ptr };
@@ -151,9 +151,16 @@ pub extern "C" fn airx_text_service(
     let service_text = airx.text_service();
     let mut service_text = service_text.access();
 
-    service_text.subscribe(Box::new(move |msg, _| {
-        let c_str_ptr = msg.as_ptr();
-        callback(c_str_ptr as *const c_char, msg.len() as u32); // u8 to i8
+    service_text.subscribe(Box::new(move |msg, socket_addr| {
+        let msg_c_str = msg.as_ptr();
+        let socket_addr_str = socket_addr.to_string();
+        let socket_addr_c_str = socket_addr_str.as_ptr();
+        callback(
+            msg_c_str as *const c_char,
+            msg.len() as u32,
+            socket_addr_c_str as *const c_char,
+            socket_addr_str.len() as u32,
+        ); // u8 to i8
     }));
 
     let subscribers_ptr = service_text.subscribers();
@@ -173,7 +180,7 @@ pub extern "C" fn airx_text_service(
 #[export_name = "airx_text_service_async"]
 pub extern "C" fn airx_text_service_async(
     airx_ptr: &'static mut AirXService,
-    callback: extern "C" fn(*const c_char, u32),
+    callback: extern "C" fn(*const c_char, u32, *const c_char, u32),
     should_interrupt: extern "C" fn() -> bool,
 ) {
     let wrapper = PointerWrapper::new(airx_ptr);
@@ -292,7 +299,7 @@ pub extern "C" fn airx_broadcast_text(
                             &thread_peer,
                             thread_config.text_service_listen_port,
                             &thread_text,
-                            Duration::from_millis(500),
+                            Duration::from_millis(250),
                         );
                     }
                 });

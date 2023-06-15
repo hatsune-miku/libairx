@@ -29,11 +29,11 @@ void airx_lan_discovery_service(struct AirXService *airx_ptr, bool (*should_inte
 void airx_lan_discovery_service_async(struct AirXService *airx_ptr, bool (*should_interrupt)(void));
 
 void airx_text_service(struct AirXService *airx_ptr,
-                       void (*callback)(const char*, uint32_t),
+                       void (*callback)(const char*, uint32_t, const char*, uint32_t),
                        bool (*should_interrupt)(void));
 
 void airx_text_service_async(struct AirXService *airx_ptr,
-                             void (*callback)(const char*, uint32_t),
+                             void (*callback)(const char*, uint32_t, const char*, uint32_t),
                              bool (*should_interrupt)(void));
 
 bool airx_lan_broadcast(struct AirXService *airx_ptr);
