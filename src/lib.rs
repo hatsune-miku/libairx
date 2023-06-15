@@ -22,8 +22,8 @@ pub mod packet;
 pub mod util;
 pub mod compatibility;
 
-static mut FIRST_RUN: bool = true;
-static mut AIRX_SERVICE: *mut AirXService = std::ptr::null_mut();
+static mut first_run: bool = true;
+static mut airx_service: *mut AirXService = std::ptr::null_mut();
 
 #[export_name = "airx_version"]
 pub extern "C" fn airx_version() -> i32 {
@@ -33,8 +33,8 @@ pub extern "C" fn airx_version() -> i32 {
 #[export_name = "airx_is_first_run"]
 pub extern "C" fn is_first_run() -> bool {
     unsafe {
-        if FIRST_RUN {
-            FIRST_RUN = false;
+        if first_run {
+            first_run = false;
             true
         } else {
             false
@@ -71,7 +71,7 @@ pub unsafe extern "C" fn airx_create_service(
         group_identity,
     };
     let airx = AirXService::new(&config);
-    AIRX_SERVICE = match airx {
+    airx_service = match airx {
         Ok(airx) => Box::into_raw(Box::new(airx)),
         Err(_) => std::ptr::null_mut(),
     };
@@ -79,12 +79,12 @@ pub unsafe extern "C" fn airx_create_service(
     info!("lib: AirX service created (addr={}:{},gid={})",
           addr, text_service_listen_port, group_identity);
 
-    AIRX_SERVICE
+    airx_service
 }
 
 #[export_name = "airx_restore"]
 pub unsafe extern "C" fn airx_restore_service() -> *mut AirXService {
-    AIRX_SERVICE
+    airx_service
 }
 
 #[export_name = "airx_lan_discovery_service"]
