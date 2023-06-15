@@ -128,7 +128,6 @@ impl DiscoveryService {
         let packet = DiscoveryPacket::deserialize(buf)?;
         let sender_address = packet.sender_address();
         if local_addresses.contains(&sender_address) {
-            info!("Dropped packet from self.");
             return Err("Received packet from self".into());
         }
 
