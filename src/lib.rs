@@ -289,7 +289,7 @@ pub extern "C" fn airx_broadcast_text(
                             &thread_peer,
                             thread_config.text_service_listen_port,
                             &thread_text,
-                            Duration::from_millis(500),
+                            Duration::from_millis(250),
                         );
                     }
                 });
