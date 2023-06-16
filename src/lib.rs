@@ -14,8 +14,6 @@ use log4rs::append::console::ConsoleAppender;
 use log4rs::Config;
 use log4rs::config::{Appender, Logger, Root};
 use log::{info, LevelFilter};
-use log4rs::append::file::FileAppender;
-use log4rs::encode::pattern::PatternEncoder;
 
 pub mod lib_util;
 pub mod network;
@@ -56,16 +54,6 @@ pub unsafe extern "C" fn airx_create_service(
     // Init logger.
     if let Ok(logger_config) = Config::builder()
         .appender(Appender::builder().build("stdout", Box::new(ConsoleAppender::builder().build())))
-        .appender(
-            Appender::builder()
-                .build("file",
-                       Box::new(
-                           FileAppender::builder()
-                               .encoder(Box::new(PatternEncoder::new("{d} - {m}{n}")))
-                               .build("libairx.log").unwrap()
-                       ),
-                )
-        )
         .logger(Logger::builder().appender("file").build("libairx", LevelFilter::Info))
         .build(Root::builder().appender("stdout").build(LevelFilter::Info)) {
         log4rs::init_config(logger_config).unwrap();
