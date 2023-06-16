@@ -82,14 +82,17 @@ impl TextService {
                     let mut socket = Socket::from(stream);
                     let mut tt = TextTransmission::from(&mut socket);
 
-                    if let Ok(s) = tt.read_text() {
-                        if let Ok(locked) = subscribers.lock() {
-                            for subscriber in locked.iter() {
-                                subscriber(s.clone(), &socket_addr);
+                    match tt.read_text() {
+                        Ok(s) => {
+                            if let Ok(locked) = subscribers.lock() {
+                                for subscriber in locked.iter() {
+                                    subscriber(s.clone(), &socket_addr);
+                                }
                             }
                         }
-                    } else {
-                        warn!("Failed to read text.");
+                        Err(e) => {
+                            warn!("{}", e);
+                        }
                     }
                 }
                 Err(ref e) if e.kind() == WouldBlock || e.kind() == TimedOut => {

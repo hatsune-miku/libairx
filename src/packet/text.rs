@@ -61,7 +61,7 @@ impl text_transmission::ReadText for TextTransmission<'_> {
 
         match TextPacket::deserialize(buf) {
             Ok(x) => Ok(x.text),
-            Err(e) => Err(io::Error::new(io::ErrorKind::Other, e)),
+            Err(e) => Err(io::Error::new(io::ErrorKind::InvalidData, e)),
         }
     }
 }
