@@ -31,7 +31,7 @@ pub extern "C" fn airx_version() -> i32 {
 }
 
 #[export_name = "airx_is_first_run"]
-pub extern "C" fn is_first_run() -> bool {
+pub extern "C" fn airx_is_first_run() -> bool {
     unsafe {
         if FIRST_RUN {
             FIRST_RUN = false;
@@ -53,12 +53,10 @@ pub unsafe extern "C" fn airx_create_service(
 ) -> *mut AirXService {
     // Init logger.
     if let Ok(logger_config) = Config::builder()
-        .appender(Appender::builder().build("stdout", Box::new(
-            ConsoleAppender::builder().build()
-        )))
-        .logger(Logger::builder().build("libairx", LevelFilter::Trace))
-        .build(Root::builder().appender("stdout").build(LevelFilter::Trace)) {
-        let _ = log4rs::init_config(logger_config);
+        .appender(Appender::builder().build("stdout", Box::new(ConsoleAppender::builder().build())))
+        .logger(Logger::builder().appender("file").build("libairx", LevelFilter::Info))
+        .build(Root::builder().appender("stdout").build(LevelFilter::Info)) {
+        log4rs::init_config(logger_config).unwrap();
     }
 
     let addr = string_from_lengthen_ptr(text_service_listen_addr, text_service_listen_addr_len);
