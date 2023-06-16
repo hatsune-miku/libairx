@@ -27,11 +27,11 @@ static mut AIRX_SERVICE: *mut AirXService = std::ptr::null_mut();
 
 #[export_name = "airx_version"]
 pub extern "C" fn airx_version() -> i32 {
-    20230616
+    20230615
 }
 
 #[export_name = "airx_is_first_run"]
-pub extern "C" fn airx_is_first_run() -> bool {
+pub extern "C" fn is_first_run() -> bool {
     unsafe {
         if FIRST_RUN {
             FIRST_RUN = false;
@@ -99,6 +99,8 @@ pub extern "C" fn airx_lan_discovery_service(
     let service_disc = service_disc.access();
     let peers_ptr = service_disc.peers();
 
+    drop(service_disc);
+
     info!("lib: Discovery service starting (cp={},sp={},gid={})",
           config.discovery_service_client_port,
           config.discovery_service_server_port,
@@ -152,6 +154,7 @@ pub extern "C" fn airx_text_service(
     }));
 
     let subscribers_ptr = service_text.subscribers();
+    drop(service_text);
 
     info!("lib: Text service starting (addr={},port={})",
           config.text_service_listen_addr, config.text_service_listen_port);
