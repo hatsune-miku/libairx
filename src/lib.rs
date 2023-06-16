@@ -27,7 +27,7 @@ static mut AIRX_SERVICE: *mut AirXService = std::ptr::null_mut();
 
 #[export_name = "airx_version"]
 pub extern "C" fn airx_version() -> i32 {
-    20230615
+    20230616
 }
 
 #[export_name = "airx_is_first_run"]
@@ -53,10 +53,12 @@ pub unsafe extern "C" fn airx_create_service(
 ) -> *mut AirXService {
     // Init logger.
     if let Ok(logger_config) = Config::builder()
-        .appender(Appender::builder().build("stdout", Box::new(ConsoleAppender::builder().build())))
-        .logger(Logger::builder().appender("file").build("libairx", LevelFilter::Info))
-        .build(Root::builder().appender("stdout").build(LevelFilter::Info)) {
-        log4rs::init_config(logger_config).unwrap();
+        .appender(Appender::builder().build("stdout", Box::new(
+            ConsoleAppender::builder().build()
+        )))
+        .logger(Logger::builder().build("libairx", LevelFilter::Trace))
+        .build(Root::builder().appender("stdout").build(LevelFilter::Trace)) {
+        let _ = log4rs::init_config(logger_config);
     }
 
     let addr = string_from_lengthen_ptr(text_service_listen_addr, text_service_listen_addr_len);
@@ -96,8 +98,6 @@ pub extern "C" fn airx_lan_discovery_service(
     let service_disc = airx.discovery_service();
     let service_disc = service_disc.access();
     let peers_ptr = service_disc.peers();
-
-    drop(service_disc);
 
     info!("lib: Discovery service starting (cp={},sp={},gid={})",
           config.discovery_service_client_port,

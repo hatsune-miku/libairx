@@ -84,6 +84,8 @@ impl TextService {
                     let mut socket = Socket::from(stream);
                     let mut tt = TextTransmission::from(&mut socket);
                     let mut tries = TCP_ACCEPT_TRY_TIMES;
+
+                    info!("kicking off a new thread to handle the connection.");
                     while tries > 0 {
                         match tt.read_text() {
                             Ok(s) => {
@@ -91,8 +93,8 @@ impl TextService {
                                     for subscriber in locked.iter() {
                                         subscriber(s.clone(), &socket_addr);
                                     }
-                                    break;
                                 }
+                                break;
                             }
                             Err(e) => {
                                 tries -= 1;
