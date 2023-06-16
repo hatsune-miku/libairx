@@ -91,7 +91,7 @@ impl TextService {
                             }
                         }
                         Err(e) => {
-                            warn!("{}", e);
+                            warn!("Failed to read text: {}", e);
                         }
                     }
                 }
