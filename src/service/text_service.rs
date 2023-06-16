@@ -17,6 +17,8 @@ pub type SubscriberType = SharedMutable<Vec<OnReceiveType>>;
 
 const TCP_ACCEPT_WAIT_MILLIS: u64 = 10;
 const TCP_ACCEPT_TIMEOUT_COUNT: u64 = 100;
+const TCP_ACCEPT_TRY_TIMES: u64 = 5;
+const TCP_ACCEPT_TRY_WAIT_MILLISECONDS: u64 = 10;
 
 #[allow(dead_code)]
 pub struct TextService {
@@ -81,17 +83,22 @@ impl TextService {
                     };
                     let mut socket = Socket::from(stream);
                     let mut tt = TextTransmission::from(&mut socket);
-
-                    match tt.read_text() {
-                        Ok(s) => {
-                            if let Ok(locked) = subscribers.lock() {
-                                for subscriber in locked.iter() {
-                                    subscriber(s.clone(), &socket_addr);
+                    let mut tries = TCP_ACCEPT_TRY_TIMES;
+                    while tries > 0 {
+                        match tt.read_text() {
+                            Ok(s) => {
+                                if let Ok(locked) = subscribers.lock() {
+                                    for subscriber in locked.iter() {
+                                        subscriber(s.clone(), &socket_addr);
+                                    }
+                                    break;
                                 }
                             }
-                        }
-                        Err(e) => {
-                            warn!("Failed to read text: {}", e);
+                            Err(e) => {
+                                tries -= 1;
+                                sleep(Duration::from_millis(TCP_ACCEPT_TRY_WAIT_MILLISECONDS));
+                                warn!("Failed to read text ({}). Tries remaining: {}", e, tries);
+                            }
                         }
                     }
                 }
