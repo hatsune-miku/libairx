@@ -154,7 +154,6 @@ pub extern "C" fn airx_text_service(
     }));
 
     let subscribers_ptr = service_text.subscribers();
-    drop(service_text);
 
     info!("lib: Text service starting (addr={},port={})",
           config.text_service_listen_addr, config.text_service_listen_port);
