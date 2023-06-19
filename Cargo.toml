@@ -8,9 +8,10 @@ description = "Core library of AirX, the fast, reliable and lightweight sync too
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-network-interface = "0.1.6"
-log = "0.4.17"
-log4rs = "1.2.0"
+network-interface = "=0.1.6"
+log = "=0.4.17"
+log4rs = "=1.2.0"
 
 [lib]
 crate-type = ["cdylib", "rlib"]
+name = "libairx"

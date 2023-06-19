@@ -1,4 +1,4 @@
-use airx::util::shared_mutable::SharedMutable;
+use libairx::util::shared_mutable::SharedMutable;
 use std::thread;
 
 #[test]

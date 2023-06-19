@@ -1,5 +1,5 @@
-use airx::packet::text_packet::TextPacket;
-use airx::packet::protocol::serialize::Serialize;
+use libairx::packet::text_packet::TextPacket;
+use libairx::packet::protocol::serialize::Serialize;
 
 #[test]
 fn test_text_packet_serializable() {

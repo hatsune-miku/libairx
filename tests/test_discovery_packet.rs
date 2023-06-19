@@ -1,6 +1,6 @@
 use std::net::Ipv4Addr;
-use airx::packet::discovery_packet::DiscoveryPacket;
-use airx::packet::protocol::serialize::Serialize;
+use libairx::packet::discovery_packet::DiscoveryPacket;
+use libairx::packet::protocol::serialize::Serialize;
 
 #[test]
 fn test_discovery_packet_serializable() {

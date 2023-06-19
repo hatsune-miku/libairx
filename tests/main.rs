@@ -1,7 +1,7 @@
-extern crate airx;
+extern crate libairx;
 
 #[test]
 fn it_works() {
-    assert!(airx::airx_version() > 20230000);
-    assert!(airx::airx_version() < 20240000);
+    assert!(libairx::airx_version() > 20230000);
+    assert!(libairx::airx_version() < 20240000);
 }

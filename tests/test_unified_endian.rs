@@ -1,4 +1,4 @@
-use airx::compatibility::unified_endian::UnifiedEndian;
+use libairx::compatibility::unified_endian::UnifiedEndian;
 
 #[cfg(target_endian = "little")]
 #[test]

@@ -1,6 +1,6 @@
 use std::net::Ipv4Addr;
-use airx::packet::file_coming_packet::FileComingPacket;
-use airx::packet::protocol::serialize::Serialize;
+use libairx::packet::file_coming_packet::FileComingPacket;
+use libairx::packet::protocol::serialize::Serialize;
 
 #[test]
 fn test_file_coming_packet_serializable() {
