@@ -27,15 +27,8 @@ pub extern "C" fn airx_version() -> i32 {
     20230619
 }
 
-#[export_name = "airx_create"]
-pub unsafe extern "C" fn airx_create_service(
-    discovery_service_server_port: u16,
-    discovery_service_client_port: u16,
-    text_service_listen_addr: *mut c_char,
-    text_service_listen_addr_len: u32,
-    text_service_listen_port: u16,
-    group_identity: u8,
-) -> *mut AirXService {
+#[export_name = "airx_init"]
+pub extern "C" fn airx_init() {
     // Init logger.
     if let Ok(logger_config) = Config::builder()
         .appender(Appender::builder().build("stdout", Box::new(
@@ -45,7 +38,18 @@ pub unsafe extern "C" fn airx_create_service(
         .build(Root::builder().appender("stdout").build(LevelFilter::Trace)) {
         let _ = log4rs::init_config(logger_config);
     }
+    info!("libairx initialized.");
+}
 
+#[export_name = "airx_create"]
+pub unsafe extern "C" fn airx_create_service(
+    discovery_service_server_port: u16,
+    discovery_service_client_port: u16,
+    text_service_listen_addr: *mut c_char,
+    text_service_listen_addr_len: u32,
+    text_service_listen_port: u16,
+    group_identity: u8,
+) -> *mut AirXService {
     let addr = string_from_lengthen_ptr(text_service_listen_addr, text_service_listen_addr_len);
 
     let config = service::airx_service::AirXServiceConfig {
