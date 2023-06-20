@@ -116,17 +116,17 @@ pub extern "C" fn airx_lan_discovery_service(
 pub extern "C" fn airx_text_service(
     airx_ptr: *mut AirXService,
     text_callback_c: extern "C" fn(
-        *const c_char,  /* text */
-        u32,            /* text_len */
-        *const c_char,  /* socket_addr */
-        u32,            /* socket_addr_len */
+        *const c_char, /* text */
+        u32, /* text_len */
+        *const c_char, /* socket_addr */
+        u32, /* socket_addr_len */
     ),
     file_coming_callback_c: extern "C" fn(
-        u32,            /* file_size */
-        *const c_char,  /* file_name */
-        u32,            /* file_name_len */
-        *const c_char,  /* socket_addr */
-        u32,            /* socket_addr_len */
+        u32, /* file_size */
+        *const c_char, /* file_name */
+        u32, /* file_name_len */
+        *const c_char, /* socket_addr */
+        u32, /* socket_addr_len */
     ),
     should_interrupt: extern "C" fn() -> bool,
 ) {
@@ -134,7 +134,6 @@ pub extern "C" fn airx_text_service(
     let config = airx.config();
 
     let text_callback = move |text_packet: &TextPacket, socket_addr: &SocketAddr| {
-
         let text_cstr = text_packet.text().as_ptr();
         let socket_addr_str = socket_addr.to_string();
         let socket_addr_cstr = socket_addr_str.as_ptr();
@@ -212,17 +211,6 @@ pub extern "C" fn airx_get_peers(
         }
     }
     0
-}
-
-#[allow(deprecated)]
-#[deprecated]
-#[export_name = "airx_start_auto_broadcast"]
-pub extern "C" fn airx_start_auto_broadcast(airx_ptr: &'static mut AirXService) {
-    let airx = &mut *airx_ptr;
-    std::thread::spawn(move || loop {
-        std::thread::sleep(Duration::from_secs(2));
-        airx_lan_broadcast(airx);
-    });
 }
 
 #[export_name = "airx_send_text"]
