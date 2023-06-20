@@ -89,7 +89,7 @@ impl Serialize<[u8; PACKET_SIZE], DiscoveryPacketError> for DiscoveryPacket {
         bytes
     }
 
-    fn deserialize(data: [u8; PACKET_SIZE]) -> Result<Self, DiscoveryPacketError> {
+    fn deserialize(data: &[u8; PACKET_SIZE]) -> Result<Self, DiscoveryPacketError> {
         let magic_number = u16::from_bytes([data[0], data[1]]);
 
         if magic_number != MAGIC_NUMBER {
@@ -105,7 +105,7 @@ impl Serialize<[u8; PACKET_SIZE], DiscoveryPacketError> for DiscoveryPacket {
             return Err(DiscoveryPacketError::InvalidHash);
         }
 
-        let need_response = data[9] == 0b0000_0001;
+        let need_response = data[9] == 1;
 
         Ok(
             Self {

@@ -1,5 +1,5 @@
 use crate::network::peer::Peer;
-use crate::service::ShouldInterruptType;
+use crate::service::ShouldInterruptFunctionType;
 use crate::util::shared_mutable::SharedMutable;
 use network_interface::{Addr, NetworkInterface, NetworkInterfaceConfig};
 use std::collections::HashSet;
@@ -125,7 +125,7 @@ impl DiscoveryService {
         // From self?
         // Deserialize packet.
         // Not handshake message?
-        let packet = DiscoveryPacket::deserialize(buf)?;
+        let packet = DiscoveryPacket::deserialize(&buf)?;
         let sender_address = packet.sender_address();
         if local_addresses.contains(&sender_address) {
             return Err("Received packet from self".into());
@@ -236,7 +236,7 @@ impl DiscoveryService {
         client_port: u16,
         server_port: u16,
         peer_set_ptr: PeerCollectionType,
-        should_interrupt: ShouldInterruptType,
+        should_interrupt: ShouldInterruptFunctionType,
         group_identity: u8,
     ) -> Result<(), io::Error> {
         let server_socket = Self::create_broadcast_socket(server_port)?;

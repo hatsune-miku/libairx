@@ -1,19 +1,25 @@
 extern crate core;
 
+use std::net::SocketAddr;
 use lib_util::string_from_lengthen_ptr;
 
-use crate::lib_util::PointerWrapper;
 use crate::network::peer::Peer;
-use crate::service::airx_service::AirXService;
+use crate::service::airx_service::{AirXService};
 use crate::service::discovery_service::DiscoveryService;
-use crate::service::text_service::TextService;
 use std::os::raw::c_char;
 use std::ptr::copy;
+use std::sync::Arc;
 use std::time::Duration;
 use log4rs::append::console::ConsoleAppender;
 use log4rs::Config;
 use log4rs::config::{Appender, Logger, Root};
-use log::{info, LevelFilter};
+use log::{error, info, LevelFilter};
+use crate::packet::data::file_coming_packet::FileComingPacket;
+use crate::packet::data::magic_numbers::MagicNumbers;
+use crate::packet::data::text_packet::TextPacket;
+use crate::packet::protocol::serialize::Serialize;
+use crate::service::context::data_service_context::DataServiceContext;
+use crate::service::data_service::{DataService};
 
 pub mod lib_util;
 pub mod network;
@@ -25,6 +31,11 @@ pub mod compatibility;
 #[export_name = "airx_version"]
 pub extern "C" fn airx_version() -> i32 {
     20230619
+}
+
+#[export_name = "airx_compatibility_number"]
+pub extern "C" fn airx_compatibility_number() -> i32 {
+    1
 }
 
 #[export_name = "airx_init"]
@@ -50,7 +61,8 @@ pub unsafe extern "C" fn airx_create_service(
     text_service_listen_port: u16,
     group_identity: u8,
 ) -> *mut AirXService {
-    let addr = string_from_lengthen_ptr(text_service_listen_addr, text_service_listen_addr_len);
+    let addr = string_from_lengthen_ptr(
+        text_service_listen_addr, text_service_listen_addr_len);
 
     let config = service::airx_service::AirXServiceConfig {
         discovery_service_server_port,
@@ -80,9 +92,8 @@ pub extern "C" fn airx_lan_discovery_service(
     let config = airx.config();
 
     let service_disc = airx.discovery_service();
-    let service_disc = service_disc.access();
+    let service_disc = service_disc.lock().unwrap();
     let peers_ptr = service_disc.peers();
-
     drop(service_disc);
 
     info!("lib: Discovery service starting (cp={},sp={},gid={})",
@@ -97,71 +108,71 @@ pub extern "C" fn airx_lan_discovery_service(
         Box::new(move || should_interrupt()),
         config.group_identity,
     );
-}
 
-// `&'static` mut is actually a pointer type.
-#[export_name = "airx_lan_discovery_service_async"]
-pub extern "C" fn airx_lan_discovery_service_async(
-    airx_ptr: &'static mut AirXService,
-    should_interrupt: extern "C" fn() -> bool,
-) {
-    let wrapper = PointerWrapper::new(airx_ptr);
-    std::thread::spawn(move || {
-        let airx_ptr = wrapper.get();
-        let airx_ptr = unsafe { &mut *airx_ptr };
-        airx_lan_discovery_service(airx_ptr, should_interrupt);
-    });
+    info!("lib: Discovery service stopped.");
 }
 
 #[export_name = "airx_text_service"]
 pub extern "C" fn airx_text_service(
     airx_ptr: *mut AirXService,
-    callback: extern "C" fn(*const c_char, u32, *const c_char, u32),
+    text_callback_c: extern "C" fn(
+        *const c_char,  /* text */
+        u32,            /* text_len */
+        *const c_char,  /* socket_addr */
+        u32,            /* socket_addr_len */
+    ),
+    file_coming_callback_c: extern "C" fn(
+        u32,            /* file_size */
+        *const c_char,  /* file_name */
+        u32,            /* file_name_len */
+        *const c_char,  /* socket_addr */
+        u32,            /* socket_addr_len */
+    ),
     should_interrupt: extern "C" fn() -> bool,
 ) {
     let airx = unsafe { &mut *airx_ptr };
     let config = airx.config();
 
-    let service_text = airx.text_service();
-    let mut service_text = service_text.access();
+    let text_callback = move |text_packet: &TextPacket, socket_addr: &SocketAddr| {
 
-    service_text.subscribe(Box::new(move |msg, socket_addr| {
-        let msg_c_str = msg.as_ptr();
+        let text_cstr = text_packet.text().as_ptr();
         let socket_addr_str = socket_addr.to_string();
-        let socket_addr_c_str = socket_addr_str.as_ptr();
-        callback(
-            msg_c_str as *const c_char,
-            msg.len() as u32,
-            socket_addr_c_str as *const c_char,
+        let socket_addr_cstr = socket_addr_str.as_ptr();
+        text_callback_c(
+            text_cstr as *const c_char,
+            text_packet.text().len() as u32,
+            socket_addr_cstr as *const c_char,
             socket_addr_str.len() as u32,
-        ); // u8 to i8
-    }));
+        );
+    };
 
-    let subscribers_ptr = service_text.subscribers();
-    drop(service_text);
+    let file_coming_callback = move |file_coming_packet: &FileComingPacket, socket_addr: &SocketAddr| {
+        let file_name_cstr = file_coming_packet.file_name().as_ptr();
+        let socket_addr_str = socket_addr.to_string();
+        let socket_addr_cstr = socket_addr_str.as_ptr();
+        file_coming_callback_c(
+            file_coming_packet.file_size(),
+            file_name_cstr as *const c_char,
+            file_coming_packet.file_name().len() as u32,
+            socket_addr_cstr as *const c_char,
+            socket_addr_str.len() as u32,
+        );
+    };
+
+    let context = DataServiceContext::new(
+        config.text_service_listen_addr.to_string(),
+        config.text_service_listen_port,
+        Box::new(move || should_interrupt()),
+        Box::new(text_callback),
+        Box::new(file_coming_callback),
+    );
 
     info!("lib: Text service starting (addr={},port={})",
           config.text_service_listen_addr, config.text_service_listen_port);
 
-    let _ = TextService::run(
-        config.text_service_listen_addr.as_str(),
-        config.text_service_listen_port,
-        Box::new(move || should_interrupt()),
-        subscribers_ptr,
-    );
-}
+    let _ = DataService::run(context);
 
-#[export_name = "airx_text_service_async"]
-pub extern "C" fn airx_text_service_async(
-    airx_ptr: &'static mut AirXService,
-    callback: extern "C" fn(*const c_char, u32, *const c_char, u32),
-    should_interrupt: extern "C" fn() -> bool,
-) {
-    let wrapper = PointerWrapper::new(airx_ptr);
-    std::thread::spawn(move || {
-        let airx_ptr = wrapper.get();
-        airx_text_service(airx_ptr, callback, should_interrupt);
-    });
+    info!("lib: Text service stopped");
 }
 
 #[deprecated]
@@ -224,21 +235,27 @@ pub extern "C" fn airx_send_text(
 ) {
     let airx = unsafe { &mut *airx_ptr };
     let config = airx.config();
-    let service_text = airx.text_service();
     let text = string_from_lengthen_ptr(text, text_len);
     let host = string_from_lengthen_ptr(host, host_len);
 
     info!("lib: Sending text to (addr={}:{})",
         host, config.text_service_listen_port);
 
-    if let Ok(locked) = service_text.clone().lock() {
-        let _ = locked.send(
-            &Peer::new(&host, config.text_service_listen_port),
-            config.text_service_listen_port,
-            &text,
-            Duration::from_millis(500),
-        );
-    }
+    let text_packet = match TextPacket::new(text) {
+        Ok(packet) => packet,
+        Err(err) => {
+            error!("lib: Failed to create text packet: {}", err);
+            return;
+        }
+    };
+
+    let _ = DataService::send_data(
+        &Peer::new(&host, config.text_service_listen_port),
+        config.text_service_listen_port,
+        MagicNumbers::Text,
+        &text_packet.serialize(),
+        Duration::from_millis(500),
+    );
 }
 
 #[export_name = "airx_broadcast_text"]
@@ -253,29 +270,34 @@ pub extern "C" fn airx_broadcast_text(
 
     let airx = unsafe { &mut *airx_ptr };
     let config = airx.config();
-    let service_text = airx.text_service();
     let service_disc = airx.discovery_service();
 
     let text = string_from_lengthen_ptr(text, len);
+    let packet = match TextPacket::new(text) {
+        Ok(packet) => packet,
+        Err(err) => {
+            error!("lib: Failed to create text packet: {}", err);
+            return;
+        }
+    };
+    let text_serialized = Arc::new(packet.serialize());
 
     if let Ok(locked) = service_disc.clone().lock() {
         if let Ok(peers_ptr) = locked.peers().lock() {
             for peer in peers_ptr.iter() {
-                let thread_service_text = service_text.clone();
                 let thread_peer = peer.clone();
                 let thread_config = config.clone();
-                let thread_text = text.clone();
+                let thread_text_serialized = text_serialized.clone();
                 std::thread::spawn(move || {
-                    if let Ok(locked) = thread_service_text.lock() {
-                        info!("lib: Sending text to (addr={}:{})",
+                    info!("lib: Sending text to (addr={}:{})",
                             thread_peer.host(), thread_config.text_service_listen_port);
-                        let _ = locked.send(
-                            &thread_peer,
-                            thread_config.text_service_listen_port,
-                            &thread_text,
-                            Duration::from_millis(250),
-                        );
-                    }
+                    let _ = DataService::send_data(
+                        &thread_peer,
+                        thread_config.text_service_listen_port,
+                        MagicNumbers::Text,
+                        &thread_text_serialized,
+                        Duration::from_millis(500),
+                    );
                 });
             }
         }

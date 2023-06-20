@@ -11,7 +11,7 @@ fn test_discovery_packet_serializable() {
         true,
     );
     let bytes = packet.serialize();
-    let packet2 = DiscoveryPacket::deserialize(bytes).unwrap();
+    let packet2 = DiscoveryPacket::deserialize(&bytes).unwrap();
 
     assert_eq!(packet2.server_port(), 9818);
     assert_eq!(packet2.group_identity(), 0);

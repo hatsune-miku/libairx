@@ -18,5 +18,5 @@ fn test_shared_mutable() {
     thread1.join().unwrap();
     thread2.join().unwrap();
 
-    assert_eq!(*shared.access(), 4);
+    assert_eq!(*shared.lock().unwrap(), 4);
 }

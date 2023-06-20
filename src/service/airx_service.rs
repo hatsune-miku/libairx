@@ -1,5 +1,5 @@
 use crate::service::discovery_service::DiscoveryService;
-use crate::service::text_service::TextService;
+use crate::service::data_service::DataService;
 use crate::util::shared_mutable::SharedMutable;
 use std::io;
 
@@ -26,7 +26,7 @@ impl Clone for AirXServiceConfig {
 #[allow(dead_code)]
 pub struct AirXService {
     config: AirXServiceConfig,
-    text_service: SharedMutable<TextService>,
+    text_service: SharedMutable<DataService>,
     discovery_service: SharedMutable<DiscoveryService>,
 }
 
@@ -35,7 +35,7 @@ impl AirXService {
     pub fn new(config: &AirXServiceConfig) -> Result<Self, io::Error> {
         // Create services.
         let discovery_service = DiscoveryService::new();
-        let text_service = TextService::new();
+        let text_service = DataService::new();
 
         Ok(Self {
             config: config.clone(),
@@ -44,7 +44,7 @@ impl AirXService {
         })
     } // run
 
-    pub fn text_service(&self) -> SharedMutable<TextService> {
+    pub fn data_service(&self) -> SharedMutable<DataService> {
         self.text_service.clone()
     }
 
