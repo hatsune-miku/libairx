@@ -48,8 +48,8 @@ pub extern "C" fn airx_init() {
         .logger(Logger::builder().build("libairx", LevelFilter::Trace))
         .build(Root::builder().appender("stdout").build(LevelFilter::Trace)) {
         let _ = log4rs::init_config(logger_config);
+        info!("libairx initialized.");
     }
-    info!("libairx initialized.");
 }
 
 #[export_name = "airx_create"]

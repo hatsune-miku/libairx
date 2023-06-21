@@ -30,15 +30,13 @@ struct AirXService *airx_create(uint16_t discovery_service_server_port,
 void airx_lan_discovery_service(struct AirXService *airx_ptr, bool (*should_interrupt)(void));
 
 void airx_text_service(struct AirXService *airx_ptr,
-                       void (*text_callback_c)(const char*, uint32_t, const char*, uint32_t),
-                       void (*file_coming_callback_c)(uint32_t, const char*, uint32_t, const char*, uint32_t),
+                       void (*text_callback_c)(const char *, uint32_t, const char *, uint32_t),
+                       void (*file_coming_callback_c)(uint32_t, const char *, uint32_t, const char *, uint32_t),
                        bool (*should_interrupt)(void));
 
 bool airx_lan_broadcast(struct AirXService *airx_ptr);
 
 uint32_t airx_get_peers(struct AirXService *airx_ptr, char *buffer);
-
-void airx_start_auto_broadcast(struct AirXService *airx_ptr);
 
 void airx_send_text(struct AirXService *airx_ptr,
                     const char *host,

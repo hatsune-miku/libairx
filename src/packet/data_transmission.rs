@@ -31,8 +31,8 @@ impl data::SendDataWithRetry for DataTransmission<'_> {
     // Try to send data for TCP_ACCEPT_TRY_TIMES times.
     fn send_data_with_retry(&mut self, data: &Vec<u8>) -> Result<usize, io::Error> {
         // Strings are already utf8 encoded.
-        let data_len = data.len();
-        let mut buf = vec![0u8; SIZE_SIZE + data_len];
+        let data_len = data.len() as u32;
+        let mut buf = vec![0u8; SIZE_SIZE + data_len as usize];
 
         buf[0..SIZE_SIZE].copy_from_slice(&data_len.to_bytes());
         buf[SIZE_SIZE..].copy_from_slice(data);
@@ -85,7 +85,6 @@ impl data::ReadDataWithRetry for DataTransmission<'_> {
                     continue;
                 }
             }
-
         }
 
         Err(error)
