@@ -3,21 +3,18 @@ use std::fmt;
 use std::fmt::{Debug, Display, Formatter};
 use log::{trace};
 use crate::compatibility::unified_endian::UnifiedEndian;
-use crate::packet::data::magic_numbers::MagicNumbers;
 use crate::packet::protocol::hash::Hash;
 use crate::packet::protocol::serialize::Serialize;
 
 // Serialized as:
-// 2 bytes: magic number
 // 4 bytes: file size in bytes
 // 4 bytes: file name length (UTF-8)
 // N bytes: file name (UTF-8)
 // 2 bytes: hash of (file_size,file_name_length)
-// 12 + N bytes in total
+// 10 + N bytes in total
 pub const BASE_PACKET_SIZE: usize = 12;
 
 pub struct FileComingPacket {
-    magic_number: u16,
     file_size: u32,
     file_name_length: u32,
     file_name: String,
@@ -29,7 +26,6 @@ impl FileComingPacket {
         file_name: String,
     ) -> FileComingPacket {
         FileComingPacket {
-            magic_number: MagicNumbers::FileComing.value(),
             file_size,
             file_name_length: file_name.len() as u32,
             file_name,
@@ -48,7 +44,6 @@ impl FileComingPacket {
 impl Debug for FileComingPacket {
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
         f.debug_struct("FileComingPacket")
-            .field("magic_number", &self.magic_number)
             .field("file_size", &self.file_size)
             .field("file_name", &self.file_name)
             .finish()
@@ -57,8 +52,7 @@ impl Debug for FileComingPacket {
 
 impl PartialEq for FileComingPacket {
     fn eq(&self, other: &Self) -> bool {
-        self.magic_number == other.magic_number
-            && self.file_size == other.file_size
+        self.file_size == other.file_size
             && self.file_name == other.file_name
     }
 
@@ -68,7 +62,6 @@ impl PartialEq for FileComingPacket {
 }
 
 pub enum FileComingPacketError {
-    InvalidMagicNumber,
     InvalidHash,
     CorruptedPacket,
     FileNameTooLong,
@@ -82,7 +75,6 @@ impl Debug for FileComingPacketError {
             format_args!(
                 "DiscoveryPacketError: {}",
                 match self {
-                    FileComingPacketError::InvalidMagicNumber => "Invalid magic number",
                     FileComingPacketError::InvalidHash => "Invalid hash",
                     FileComingPacketError::FileNameTooLong => "File name too long",
                     FileComingPacketError::FileTooLarge => "File too large",
@@ -113,21 +105,9 @@ impl Hash<u16> for FileComingPacket {
     }
 }
 
-// Serialized as:
-// 2 bytes: magic number
-// 4 bytes: address
-// 2 bytes: server port
-// 1 byte:  group identity
-// 4 bytes: file size in bytes
-// 4 bytes: file name length (UTF-8)
-// N bytes: file name (UTF-8)
-// 2 bytes: hash of (addr,port,id,file_size)
-// 19 + N bytes in total
-
 impl Serialize<Vec<u8>, FileComingPacketError> for FileComingPacket {
     fn serialize(&self) -> Vec<u8> {
         let mut bytes = Vec::<u8>::new();
-        bytes.extend_from_slice(&self.magic_number.to_bytes());
         bytes.extend_from_slice(&self.file_size.to_bytes());
         bytes.extend_from_slice(&self.file_name_length.to_bytes());
         bytes.extend_from_slice(self.file_name.as_bytes());
@@ -145,16 +125,11 @@ impl Serialize<Vec<u8>, FileComingPacketError> for FileComingPacket {
             return Err(FileComingPacketError::CorruptedPacket);
         }
 
-        let magic_number = u16::from_bytes([data[0], data[1]]);
-        if magic_number != MagicNumbers::FileComing.value() {
-            return Err(FileComingPacketError::InvalidMagicNumber);
-        }
-
-        let file_size = u32::from_bytes([data[2], data[3], data[4], data[5]]);
-        let file_name_length = u32::from_bytes([data[6], data[7], data[8], data[9]]);
+        let file_size = u32::from_bytes([data[0], data[1], data[2], data[3]]);
+        let file_name_length = u32::from_bytes([data[4], data[5], data[6], data[7]]);
         let file_name_length = file_name_length as usize;
         let file_name = String::from_utf8(
-            data[10..(10 + file_name_length)].to_vec()
+            data[8..(8 + file_name_length)].to_vec()
         ).map_err(|_| FileComingPacketError::FileNameTooLong)?;
 
         // Secondary size check
@@ -168,8 +143,8 @@ impl Serialize<Vec<u8>, FileComingPacketError> for FileComingPacket {
         }
 
         let hash = u16::from_bytes([
-            data[10 + file_name_length],
-            data[10 + file_name_length + 1],
+            data[8 + file_name_length],
+            data[8 + file_name_length + 1],
         ]);
 
         let ret = FileComingPacket::new(

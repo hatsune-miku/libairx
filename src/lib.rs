@@ -30,7 +30,7 @@ pub mod compatibility;
 
 #[export_name = "airx_version"]
 pub extern "C" fn airx_version() -> i32 {
-    20230619
+    20230624
 }
 
 #[export_name = "airx_compatibility_number"]
@@ -290,4 +290,21 @@ pub extern "C" fn airx_broadcast_text(
             }
         }
     }
+}
+
+pub extern "C" fn airx_send_file(
+    airx_ptr: *mut AirXService,
+    host: *const c_char,
+    host_len: u32,
+    file_path: *const c_char,
+    file_path_len: u32,
+) {
+    let airx = unsafe { &mut *airx_ptr };
+    let config = airx.config();
+    let host = string_from_lengthen_ptr(host, host_len);
+    let file_path = string_from_lengthen_ptr(file_path, file_path_len);
+
+    info!("lib: Sending file {} to (addr={}:{})",
+        file_path, host, config.text_service_listen_port);
+
 }
