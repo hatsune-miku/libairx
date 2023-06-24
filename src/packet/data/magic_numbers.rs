@@ -1,5 +1,5 @@
 pub enum MagicNumbers {
-    FileComing, Text
+    FileComing, Text, FileReceiveResponse, FilePart,
 }
 
 impl MagicNumbers {
@@ -7,6 +7,8 @@ impl MagicNumbers {
         match self {
             MagicNumbers::FileComing => 0x3939,
             MagicNumbers::Text => 0x3940,
+            MagicNumbers::FileReceiveResponse => 0x3941,
+            MagicNumbers::FilePart => 0x3942,
         }
     }
     
@@ -14,6 +16,8 @@ impl MagicNumbers {
         match value {
             0x3939 => Some(MagicNumbers::FileComing),
             0x3940 => Some(MagicNumbers::Text),
+            0x3941 => Some(MagicNumbers::FileReceiveResponse),
+            0x3942 => Some(MagicNumbers::FilePart),
             _ => None,
         }
     }

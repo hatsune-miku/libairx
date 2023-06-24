@@ -7,22 +7,22 @@ use crate::packet::protocol::hash::Hash;
 use crate::packet::protocol::serialize::Serialize;
 
 // Serialized as:
-// 4 bytes: file size in bytes
+// 8 bytes: file size in bytes
 // 4 bytes: file name length (UTF-8)
 // N bytes: file name (UTF-8)
 // 2 bytes: hash of (file_size,file_name_length)
-// 10 + N bytes in total
+// 14 + N bytes in total
 pub const BASE_PACKET_SIZE: usize = 12;
 
 pub struct FileComingPacket {
-    file_size: u32,
+    file_size: u64,
     file_name_length: u32,
     file_name: String,
 }
 
 impl FileComingPacket {
     pub fn new(
-        file_size: u32,
+        file_size: u64,
         file_name: String,
     ) -> FileComingPacket {
         FileComingPacket {
@@ -32,7 +32,7 @@ impl FileComingPacket {
         }
     }
 
-    pub fn file_size(&self) -> u32 {
+    pub fn file_size(&self) -> u64 {
         self.file_size
     }
 
@@ -96,7 +96,7 @@ impl Error for FileComingPacketError {}
 // 没有150年功力的人，不要轻易使用这个哈希算法，极易遭到反噬！
 // 怎么IDEA连注释都算重复啊，IDEA他不懂编程
 fn packet_hash(packet: &FileComingPacket) -> u16 {
-    (packet.file_size + packet.file_name_length) as u16
+    (packet.file_size as u32 + packet.file_name_length) as u16
 }
 
 impl Hash<u16> for FileComingPacket {
@@ -116,7 +116,6 @@ impl Serialize<Vec<u8>, FileComingPacketError> for FileComingPacket {
     }
 
     fn deserialize(data: &Vec<u8>) -> Result<Self, FileComingPacketError> {
-        // Preliminary size check
         trace!(
             "FileComingPacket::deserialize, preliminary size check, BASE_PACKET_SIZE: {}",
             BASE_PACKET_SIZE
@@ -125,26 +124,16 @@ impl Serialize<Vec<u8>, FileComingPacketError> for FileComingPacket {
             return Err(FileComingPacketError::CorruptedPacket);
         }
 
-        let file_size = u32::from_bytes([data[0], data[1], data[2], data[3]]);
-        let file_name_length = u32::from_bytes([data[4], data[5], data[6], data[7]]);
+        let file_size = u64::from_bytes([data[0], data[1], data[2], data[3], data[4], data[5], data[6], data[7]]);
+        let file_name_length = u32::from_bytes([data[8], data[9], data[10], data[11]]);
         let file_name_length = file_name_length as usize;
         let file_name = String::from_utf8(
-            data[8..(8 + file_name_length)].to_vec()
+            data[12..(12 + file_name_length)].to_vec()
         ).map_err(|_| FileComingPacketError::FileNameTooLong)?;
 
-        // Secondary size check
-        let expected_size = BASE_PACKET_SIZE + file_name_length;
-        trace!(
-            "FileComingPacket::deserialize, secondary size check, expected size: {}",
-            expected_size
-        );
-        if data.len() != expected_size {
-            return Err(FileComingPacketError::CorruptedPacket);
-        }
-
         let hash = u16::from_bytes([
-            data[8 + file_name_length],
-            data[8 + file_name_length + 1],
+            data[12 + file_name_length],
+            data[12 + file_name_length + 1],
         ]);
 
         let ret = FileComingPacket::new(

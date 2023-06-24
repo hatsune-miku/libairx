@@ -1,5 +1,6 @@
 extern crate core;
 
+use std::fs::File;
 use std::net::SocketAddr;
 use lib_util::string_from_lengthen_ptr;
 
@@ -15,6 +16,9 @@ use log4rs::Config;
 use log4rs::config::{Appender, Logger, Root};
 use log::{error, info, LevelFilter};
 use crate::packet::data::file_coming_packet::FileComingPacket;
+use crate::packet::data::file_part_packet::FilePartPacket;
+use crate::packet::data::file_receive_response_packet::FileReceiveResponsePacket;
+use crate::packet::data::local::file_sending_packet::FileSendingPacket;
 use crate::packet::data::magic_numbers::MagicNumbers;
 use crate::packet::data::text_packet::TextPacket;
 use crate::packet::protocol::serialize::Serialize;
@@ -68,7 +72,7 @@ pub unsafe extern "C" fn airx_create_service(
         discovery_service_server_port,
         discovery_service_client_port,
         text_service_listen_addr: addr.clone(),
-        text_service_listen_port,
+        data_service_listen_port: text_service_listen_port,
         group_identity,
     };
     let airx = AirXService::new(&config);
@@ -122,16 +126,30 @@ pub extern "C" fn airx_text_service(
         u32, /* socket_addr_len */
     ),
     file_coming_callback_c: extern "C" fn(
-        u32, /* file_size */
+        u64, /* file_size */
         *const c_char, /* file_name */
         u32, /* file_name_len */
         *const c_char, /* socket_addr */
         u32, /* socket_addr_len */
     ),
+    file_sending_callback_c: extern "C" fn(
+        u8, /* file_id */
+        u64, /* progress */
+        u64, /* total */
+        u8, /* status */
+    ),
+    file_part_callback_c: extern "C" fn(
+        u8, /* file_id */
+        u32, /* offset */
+        u32, /* length */
+        *const c_char, /* data */
+    ),
     should_interrupt: extern "C" fn() -> bool,
 ) {
     let airx = unsafe { &mut *airx_ptr };
     let config = airx.config();
+    
+    let should_interrupt_callback = move || should_interrupt();
 
     let text_callback = move |text_packet: &TextPacket, socket_addr: &SocketAddr| {
         let text_cstr = text_packet.text().as_ptr();
@@ -158,16 +176,37 @@ pub extern "C" fn airx_text_service(
         );
     };
 
+    let file_sending_callback = move |file_sending_packet: &FileSendingPacket, _: &SocketAddr| {
+        file_sending_callback_c(
+            file_sending_packet.file_id(),
+            file_sending_packet.progress(),
+            file_sending_packet.total(),
+            file_sending_packet.status().to_u8(),
+        );
+    };
+
+    let file_part_callback = move |file_part_packet: &FilePartPacket, _: &SocketAddr| {
+        let data_cstr = file_part_packet.data().as_ptr();
+        file_part_callback_c(
+            file_part_packet.file_id(),
+            file_part_packet.offset(),
+            file_part_packet.length(),
+            data_cstr as *const c_char,
+        );
+    };
+
     let context = DataServiceContext::new(
         config.text_service_listen_addr.to_string(),
-        config.text_service_listen_port,
-        Box::new(move || should_interrupt()),
+        config.data_service_listen_port,
+        Box::new(should_interrupt_callback),
         Box::new(text_callback),
         Box::new(file_coming_callback),
+        Box::new(file_sending_callback),
+        Box::new(file_part_callback),
     );
 
     info!("lib: Text service starting (addr={},port={})",
-          config.text_service_listen_addr, config.text_service_listen_port);
+          config.text_service_listen_addr, config.data_service_listen_port);
 
     let _ = DataService::run(context);
 
@@ -227,7 +266,7 @@ pub extern "C" fn airx_send_text(
     let host = string_from_lengthen_ptr(host, host_len);
 
     info!("lib: Sending text to (addr={}:{})",
-        host, config.text_service_listen_port);
+        host, config.data_service_listen_port);
 
     let text_packet = match TextPacket::new(text) {
         Ok(packet) => packet,
@@ -237,9 +276,9 @@ pub extern "C" fn airx_send_text(
         }
     };
 
-    let _ = DataService::send_data(
-        &Peer::new(&host, config.text_service_listen_port),
-        config.text_service_listen_port,
+    let _ = DataService::send_data_with_retry(
+        &Peer::new(&host, config.data_service_listen_port),
+        config.data_service_listen_port,
         MagicNumbers::Text,
         &text_packet.serialize(),
         Duration::from_millis(500),
@@ -278,10 +317,10 @@ pub extern "C" fn airx_broadcast_text(
                 let thread_text_serialized = text_serialized.clone();
                 std::thread::spawn(move || {
                     info!("lib: Sending text to (addr={}:{})",
-                            thread_peer.host(), thread_config.text_service_listen_port);
-                    let _ = DataService::send_data(
+                            thread_peer.host(), thread_config.data_service_listen_port);
+                    let _ = DataService::send_data_with_retry(
                         &thread_peer,
-                        thread_config.text_service_listen_port,
+                        thread_config.data_service_listen_port,
                         MagicNumbers::Text,
                         &thread_text_serialized,
                         Duration::from_millis(500),
@@ -292,7 +331,7 @@ pub extern "C" fn airx_broadcast_text(
     }
 }
 
-pub extern "C" fn airx_send_file(
+pub extern "C" fn airx_try_send_file(
     airx_ptr: *mut AirXService,
     host: *const c_char,
     host_len: u32,
@@ -304,7 +343,59 @@ pub extern "C" fn airx_send_file(
     let host = string_from_lengthen_ptr(host, host_len);
     let file_path = string_from_lengthen_ptr(file_path, file_path_len);
 
-    info!("lib: Sending file {} to (addr={}:{})",
-        file_path, host, config.text_service_listen_port);
+    info!("lib: Sending file info {} to (addr={}:{})",
+        file_path, host, config.data_service_listen_port);
 
+    info!("lib: Reading file info {}", file_path);
+    let file_info = match File::open(file_path.clone()) {
+        Ok(f) => f,
+        Err(e) => {
+            error!("lib: Failed to open file {}: {}", file_path, e);
+            return;
+        }
+    };
+
+    info!("lib: Reading metadata of file {}", file_path);
+    let metadata = match file_info.metadata() {
+        Ok(d) => d,
+        Err(e) => {
+            error!("lib: Failed to read metadata of file {}: {}", file_path, e);
+            return;
+        }
+    };
+
+    let packet = FileComingPacket::new(metadata.len(), file_path.clone());
+    let _ = DataService::send_data_with_retry(
+        &Peer::new(&host, config.data_service_listen_port),
+        config.data_service_listen_port,
+        MagicNumbers::FileComing,
+        &packet.serialize(),
+        Duration::from_millis(500),
+    );
+}
+
+pub extern "C" fn airx_respond_to_file(
+    airx_ptr: *mut AirXService,
+    host: *const c_char,
+    host_len: u32,
+    file_id: u8,
+    file_size: u64,
+    file_path: *const c_char,
+    file_path_len: u32,
+    accept: bool,
+) {
+    let airx = unsafe { &mut *airx_ptr };
+    let config = airx.config();
+    let host = string_from_lengthen_ptr(host, host_len);
+    let file_path = string_from_lengthen_ptr(file_path, file_path_len);
+
+    let packet = FileReceiveResponsePacket::new(
+        file_id, file_size, file_path, accept);
+    let _ = DataService::send_data_with_retry(
+        &Peer::new(&host, config.data_service_listen_port),
+        config.data_service_listen_port,
+        MagicNumbers::FileReceiveResponse,
+        &packet.serialize(),
+        Duration::from_millis(500),
+    );
 }

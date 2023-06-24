@@ -8,13 +8,12 @@ use std::net::{SocketAddr, TcpStream};
 use std::thread::sleep;
 use std::time::Duration;
 use log::{info, warn};
-use crate::packet::data::file_coming_packet::FileComingPacket;
 use crate::packet::data::magic_numbers::MagicNumbers;
-use crate::packet::data::text_packet::{TextPacket};
 use crate::packet::data_packet::DataPacket;
 use crate::packet::protocol::data::{ReadDataWithRetry, SendDataWithRetry};
 use crate::packet::protocol::serialize::Serialize;
 use crate::service::context::data_service_context::DataServiceContext;
+use crate::service::handler::{file_coming_packet_handler, file_receive_response_packet_handler, text_packet_handler};
 
 pub type OnPacketReceivedFunctionType<T> = Box<dyn Fn(&T, &SocketAddr) + Send + Sync>;
 
@@ -33,7 +32,7 @@ impl DataService {
         Self {}
     }
 
-    pub fn send_data(
+    pub fn send_data_with_retry(
         peer: &Peer,
         port: u16,
         magic_number: MagicNumbers,
@@ -54,26 +53,15 @@ impl DataService {
         }
     }
 
-
     fn dispatch_data_packet(
         packet: &DataPacket,
         socket_addr: SocketAddr,
         context: &DataServiceContext
     ) {
-        let packet_data = packet.data();
         match MagicNumbers::from(packet.magic_number()) {
-            Some(MagicNumbers::Text) => {
-                match TextPacket::deserialize(packet_data) {
-                    Ok(p) => (context.text_callback())(&p, &socket_addr),
-                    Err(e) => warn!("Failed to deserialize text packet ({:?}).", e),
-                };
-            }
-            Some(MagicNumbers::FileComing) => {
-                match FileComingPacket::deserialize(packet_data) {
-                    Ok(p) => (context.file_coming_callback())(&p, &socket_addr),
-                    Err(e) => warn!("Failed to deserialize file coming packet ({:?}).", e),
-                };
-            }
+            Some(MagicNumbers::Text) => text_packet_handler::handle(packet, &socket_addr, context),
+            Some(MagicNumbers::FileComing) => file_coming_packet_handler::handle(packet, &socket_addr, context),
+            Some(MagicNumbers::FileReceiveResponse) => file_receive_response_packet_handler::handle(packet, &socket_addr, context),
             _ => warn!("Unknown magic number.")
         }
     }

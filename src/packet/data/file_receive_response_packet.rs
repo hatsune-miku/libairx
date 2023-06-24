@@ -5,7 +5,7 @@ use crate::packet::protocol::serialize::Serialize;
 
 pub struct FileReceiveResponsePacket {
     file_id: u8,
-    file_size: u32,
+    file_size: u64,
     file_name_length: u32,
     file_name: String,
     accepted: bool,
@@ -13,17 +13,17 @@ pub struct FileReceiveResponsePacket {
 
 // Serialized as:
 // 1 byte: file id
-// 4 bytes: file size in bytes
+// 8 bytes: file size in bytes
 // 4 bytes: file name length (UTF-8)
 // N bytes: file name (UTF-8)
 // 1 byte: accepted
-// 10 + N bytes in total
-pub const BASE_PACKET_SIZE: usize = 10;
+// 14 + N bytes in total
+pub const BASE_PACKET_SIZE: usize = 14;
 
 impl FileReceiveResponsePacket {
     pub fn new(
         file_id: u8,
-        file_size: u32,
+        file_size: u64,
         file_name: String,
         accepted: bool,
     ) -> FileReceiveResponsePacket {
@@ -40,7 +40,7 @@ impl FileReceiveResponsePacket {
         self.file_id
     }
 
-    pub fn file_size(&self) -> u32 {
+    pub fn file_size(&self) -> u64 {
         self.file_size
     }
 
@@ -111,13 +111,13 @@ impl Serialize<Vec<u8>, FileReceiveResponsePacketError> for FileReceiveResponseP
             return Err(FileReceiveResponsePacketError::CorruptedData);
         }
         let file_id = data[0];
-        let file_size = u32::from_bytes([data[1], data[2], data[3], data[4]]);
-        let file_name_length = u32::from_bytes([data[5], data[6], data[7], data[8]]);
+        let file_size = u64::from_bytes([data[1], data[2], data[3], data[4], data[5], data[6], data[7], data[8]]);
+        let file_name_length = u32::from_bytes([data[9], data[10], data[11], data[12]]);
         if data.len() < BASE_PACKET_SIZE + file_name_length as usize {
             return Err(FileReceiveResponsePacketError::CorruptedData);
         }
-        let file_name = String::from_utf8_lossy(&data[9..9 + file_name_length as usize]).to_string();
-        let accepted = data[9 + file_name_length as usize] != 0;
+        let file_name = String::from_utf8_lossy(&data[13..13 + file_name_length as usize]).to_string();
+        let accepted = data[13 + file_name_length as usize] != 0;
         Ok(FileReceiveResponsePacket {
             file_id,
             file_size,

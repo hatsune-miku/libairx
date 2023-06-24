@@ -3,7 +3,7 @@ use std::io::{ErrorKind, Read, Write};
 use std::net::SocketAddr;
 use std::net::TcpStream;
 
-const TCP_STREAM_TRY_TIMES: u64 = 5;
+const TCP_STREAM_TRY_TIMES: u64 = 10;
 
 pub struct Socket {
     stream: TcpStream,
