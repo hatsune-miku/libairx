@@ -7,7 +7,7 @@ use log::warn;
 use crate::compatibility::unified_endian::UnifiedEndian;
 use crate::packet::protocol::data;
 
-const TCP_ACCEPT_TRY_TIMES: u64 = 5;
+const PACKET_TRY_TIMES: u64 = 5;
 const TCP_ACCEPT_TRY_WAIT_MILLISECONDS: u64 = 10;
 
 // A data package is:
@@ -37,16 +37,16 @@ impl data::SendDataWithRetry for DataTransmission<'_> {
         buf[0..SIZE_SIZE].copy_from_slice(&data_len.to_bytes());
         buf[SIZE_SIZE..].copy_from_slice(data);
 
-        let mut tries = TCP_ACCEPT_TRY_TIMES;
+        let mut remaining_tries = PACKET_TRY_TIMES;
         let mut error: io::Error = io::Error::new(io::ErrorKind::Other, "Failed to send data.");
 
-        while tries > 0 {
-            match self.socket.send(&buf) {
+        while remaining_tries > 0 {
+            match self.socket.send_with_retry(&buf) {
                 Ok(size) => return Ok(size),
                 Err(e) => {
                     error = e;
-                    tries -= 1;
-                    warn!("Failed to send data ({}), remaining tries: {}.", error, tries);
+                    remaining_tries -= 1;
+                    warn!("Failed to send data ({}), remaining tries: {}.", error, remaining_tries);
                     sleep(Duration::from_millis(TCP_ACCEPT_TRY_WAIT_MILLISECONDS));
                     continue;
                 }
@@ -60,7 +60,7 @@ impl data::ReadDataWithRetry for DataTransmission<'_> {
     // Try to read data for TCP_ACCEPT_TRY_TIMES times.
     fn read_data_with_retry(&mut self) -> Result<Vec<u8>, io::Error> {
         let mut size_buf: [u8; SIZE_SIZE] = [0; SIZE_SIZE];
-        let mut tries = TCP_ACCEPT_TRY_TIMES;
+        let mut tries = PACKET_TRY_TIMES;
         let mut error: io::Error = io::Error::new(io::ErrorKind::Other, "Failed to read data.");
 
         while tries > 0 {
