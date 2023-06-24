@@ -35,7 +35,8 @@ impl Socket {
     pub fn send_with_retry(&mut self, data: &[u8]) -> Result<usize, io::Error> {
         let mut size_sent_total = 0;
         let mut retry = 0;
-        while size_sent_total < data.len() {
+        let data_len = data.len();
+        while size_sent_total < data_len {
             let size_sent = match self.stream.write(&data[size_sent_total..]) {
                 Ok(x) => x,
                 Err(e) => {
