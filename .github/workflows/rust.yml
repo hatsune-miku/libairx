@@ -1,10 +1,10 @@
-name: Rust
+name: Release Build
 
 on:
   push:
-    branches: [ "lib" ]
+    branches: [ "main" ]
   pull_request:
-    branches: [ "lib" ]
+    branches: [ "main" ]
 
 env:
   CARGO_TERM_COLOR: always
