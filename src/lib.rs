@@ -116,8 +116,8 @@ pub extern "C" fn airx_lan_discovery_service(
     info!("lib: Discovery service stopped.");
 }
 
-#[export_name = "airx_text_service"]
-pub extern "C" fn airx_text_service(
+#[export_name = "airx_data_service"]
+pub extern "C" fn airx_data_service(
     airx_ptr: *mut AirXService,
     text_callback_c: extern "C" fn(
         *const c_char, /* text */
