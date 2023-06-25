@@ -18,7 +18,7 @@ pub struct FileReceiveResponsePacket {
 // N bytes: file name (UTF-8)
 // 1 byte: accepted
 // 14 + N bytes in total
-pub const BASE_PACKET_SIZE: usize = 14;
+const BASE_PACKET_SIZE: usize = 14;
 
 impl FileReceiveResponsePacket {
     pub fn new(

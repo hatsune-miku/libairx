@@ -4,14 +4,14 @@ use crate::compatibility::unified_endian::UnifiedEndian;
 use crate::packet::protocol::serialize::Serialize;
 
 /**
- * Serialized as:
-    * 2 bytes: magic number
-    * 4 bytes: data length in bytes
-    * N bytes: data
-    * 2 bytes: hash of (data_length)
-    * 8 + N bytes in total
-*/
-pub const BASE_PACKET_SIZE: usize = 8;
+* Serialized as:
+   * 2 bytes: magic number
+   * 4 bytes: data length in bytes
+   * N bytes: data
+   * 2 bytes: hash of (data_length)
+   * 8 + N bytes in total
+ */
+const BASE_PACKET_SIZE: usize = 8;
 
 pub struct DataPacket {
     magic_number: u16,
@@ -35,7 +35,7 @@ impl Debug for DataPacketError {
                     DataPacketError::InvalidHash => "Invalid hash",
                     DataPacketError::CorruptedData => "Corrupted data",
                 },
-            )
+            ),
         )
     }
 }

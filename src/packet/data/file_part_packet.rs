@@ -18,7 +18,7 @@ pub struct FilePartPacket {
 // 4 bytes: length
 // N bytes: data
 // 9 + N bytes in total
-pub const BASE_PACKET_SIZE: usize = 9;
+const BASE_PACKET_SIZE: usize = 9;
 
 impl FilePartPacket {
     pub fn new(
@@ -30,7 +30,7 @@ impl FilePartPacket {
         FilePartPacket {
             file_id,
             offset,
-            length, 
+            length,
             data: Arc::new(data),
         }
     }

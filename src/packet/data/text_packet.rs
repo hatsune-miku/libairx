@@ -5,7 +5,7 @@ use crate::compatibility::unified_endian::UnifiedEndian;
 use crate::packet::protocol::hash::Hash;
 use crate::packet::protocol::serialize::Serialize;
 
-pub const STRING_LENGTH_MAX: usize = 0xffff;
+const STRING_LENGTH_MAX: usize = 0xffff;
 
 // Serialized as:
 // 4 bytes: text length (UTF-8)

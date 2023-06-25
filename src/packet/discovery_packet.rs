@@ -14,8 +14,7 @@ use crate::packet::protocol::serialize::Serialize;
 // 1 byte:   need response?
 // 2 bytes:  hash of (addr,port,id)
 // 12 bytes in total
-
-pub const PACKET_SIZE: usize = 12;
+const PACKET_SIZE: usize = 12;
 const MAGIC_NUMBER: u16 = 0x8964;
 
 pub struct DiscoveryPacket {

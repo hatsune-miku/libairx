@@ -3,15 +3,6 @@
 #include <stdint.h>
 #include <stdlib.h>
 
-#define PACKET_SIZE 12
-
-/**
- *  * Serialized as:     * 2 bytes: magic number     * 4 bytes: data length in bytes     * N bytes: data     * 2 bytes: hash of (data_length)     * 8 + N bytes in total
- */
-#define BASE_PACKET_SIZE 8
-
-#define STRING_LENGTH_MAX 65535
-
 typedef struct AirXService AirXService;
 
 int32_t airx_version(void);
@@ -30,8 +21,10 @@ struct AirXService *airx_create(uint16_t discovery_service_server_port,
 void airx_lan_discovery_service(struct AirXService *airx_ptr, bool (*should_interrupt)(void));
 
 void airx_text_service(struct AirXService *airx_ptr,
-                       void (*text_callback_c)(const char *, uint32_t, const char *, uint32_t),
-                       void (*file_coming_callback_c)(uint32_t, const char *, uint32_t, const char *, uint32_t),
+                       void (*text_callback_c)(const char*, uint32_t, const char*, uint32_t),
+                       void (*file_coming_callback_c)(uint64_t, const char*, uint32_t, const char*, uint32_t),
+                       void (*file_sending_callback_c)(uint8_t, uint64_t, uint64_t, uint8_t),
+                       void (*file_part_callback_c)(uint8_t, uint32_t, uint32_t, const char*),
                        bool (*should_interrupt)(void));
 
 bool airx_lan_broadcast(struct AirXService *airx_ptr);
@@ -45,3 +38,18 @@ void airx_send_text(struct AirXService *airx_ptr,
                     uint32_t text_len);
 
 void airx_broadcast_text(struct AirXService *airx_ptr, char *text, uint32_t len);
+
+void airx_try_send_file(struct AirXService *airx_ptr,
+                        const char *host,
+                        uint32_t host_len,
+                        const char *file_path,
+                        uint32_t file_path_len);
+
+void airx_respond_to_file(struct AirXService *airx_ptr,
+                          const char *host,
+                          uint32_t host_len,
+                          uint8_t file_id,
+                          uint64_t file_size,
+                          const char *file_path,
+                          uint32_t file_path_len,
+                          bool accept);

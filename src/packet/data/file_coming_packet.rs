@@ -12,7 +12,7 @@ use crate::packet::protocol::serialize::Serialize;
 // N bytes: file name (UTF-8)
 // 2 bytes: hash of (file_size,file_name_length)
 // 14 + N bytes in total
-pub const BASE_PACKET_SIZE: usize = 12;
+const BASE_PACKET_SIZE: usize = 12;
 
 pub struct FileComingPacket {
     file_size: u64,

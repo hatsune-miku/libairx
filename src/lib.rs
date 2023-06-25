@@ -148,7 +148,7 @@ pub extern "C" fn airx_text_service(
 ) {
     let airx = unsafe { &mut *airx_ptr };
     let config = airx.config();
-    
+
     let should_interrupt_callback = move || should_interrupt();
 
     let text_callback = move |text_packet: &TextPacket, socket_addr: &SocketAddr| {
@@ -331,6 +331,7 @@ pub extern "C" fn airx_broadcast_text(
     }
 }
 
+#[export_name = "airx_try_send_file"]
 pub extern "C" fn airx_try_send_file(
     airx_ptr: *mut AirXService,
     host: *const c_char,
@@ -374,6 +375,7 @@ pub extern "C" fn airx_try_send_file(
     );
 }
 
+#[export_name = "airx_respond_to_file"]
 pub extern "C" fn airx_respond_to_file(
     airx_ptr: *mut AirXService,
     host: *const c_char,
