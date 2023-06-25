@@ -19,7 +19,7 @@ const TIMEOUT_MILLIS: u64 = 1000;
 pub fn handle(
     packet: &DataPacket,
     socket_addr: &SocketAddr,
-    context: &DataServiceContext
+    context: &DataServiceContext,
 ) {
     let packet = match FileReceiveResponsePacket::deserialize(packet.data()) {
         Ok(p) => p,
@@ -84,19 +84,19 @@ pub fn handle(
         }
 
         let data_packet = FilePartPacket::new(
-            packet.file_id(), offset, bytes_read as u32, Box::from(&buffer[..bytes_read])
+            packet.file_id(), offset, bytes_read as u32, Box::from(&buffer[..bytes_read]),
         );
         let peer = Peer::from(&ipv4addr, context.port());
         let _ = DataService::send_data_with_retry(
             &peer, context.port(), MagicNumbers::FilePart, &data_packet.serialize(),
-            Duration::from_millis(TIMEOUT_MILLIS)
+            Duration::from_millis(TIMEOUT_MILLIS),
         );
 
         let local_packet = FileSendingPacket::new(
             packet.file_id(),
             offset as u64,
             packet.file_size(),
-            FileSendingStatus::InProgress
+            FileSendingStatus::InProgress,
         );
         (context.file_sending_callback())(&local_packet, socket_addr);
         offset += bytes_read as u32;
