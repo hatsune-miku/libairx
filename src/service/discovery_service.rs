@@ -11,6 +11,7 @@ use log::{error, info};
 use crate::packet::discovery_packet;
 use crate::packet::discovery_packet::DiscoveryPacket;
 use crate::packet::protocol::serialize::Serialize;
+use crate::util::os::OSUtil;
 
 const DISCOVERY_TIMEOUT_MILLIS: u64 = 1000;
 
@@ -140,12 +141,14 @@ impl DiscoveryService {
         if packet.need_response() {
             // Respond to our new friend on behalf of each local address.
             info!("Responding to discovery request from {}", sender_address);
+            let self_hostname = OSUtil::hostname();
             for local_addr_ipv4 in local_addresses {
                 let response_packet = DiscoveryPacket::new(
                     local_addr_ipv4,
                     packet.server_port(),
                     group_identity,
                     false,
+                    &self_hostname,
                 );
                 let _ = server_socket.send_to(
                     &response_packet.serialize(),
@@ -155,7 +158,11 @@ impl DiscoveryService {
         }
 
         if let Ok(mut locked) = peer_set.lock() {
-            locked.insert(Peer::from(&sender_address, packet.server_port()));
+            locked.insert(Peer::from(
+                &sender_address,
+                packet.server_port(),
+                Some(packet.host_name())
+            ));
         }
 
         Ok(())
@@ -184,6 +191,7 @@ impl DiscoveryService {
             }
         };
 
+        let self_hostname = OSUtil::hostname();
         for broadcast_addr_ipv4 in &broadcast_addresses {
             for local_addr_ipv4 in &local_addresses {
                 let broadcast_packet = DiscoveryPacket::new(
@@ -191,6 +199,7 @@ impl DiscoveryService {
                     server_port,
                     group_identity,
                     true,
+                    &self_hostname,
                 );
                 let broadcast_packet_bytes = broadcast_packet.serialize();
                 let _ = client_socket.send_to(

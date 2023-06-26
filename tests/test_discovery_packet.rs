@@ -9,6 +9,7 @@ fn test_discovery_packet_serializable() {
         9818,
         0,
         true,
+        &String::from("嘟嘟嘟"),
     );
     let bytes = packet.serialize();
     let packet2 = DiscoveryPacket::deserialize(&bytes).unwrap();

@@ -277,7 +277,7 @@ pub extern "C" fn airx_send_text(
     };
 
     let _ = DataService::send_data_with_retry(
-        &Peer::new(&host, config.data_service_listen_port),
+        &Peer::new(&host, config.data_service_listen_port, None),
         config.data_service_listen_port,
         MagicNumbers::Text,
         &text_packet.serialize(),
@@ -367,7 +367,7 @@ pub extern "C" fn airx_try_send_file(
 
     let packet = FileComingPacket::new(metadata.len(), file_path.clone());
     let _ = DataService::send_data_with_retry(
-        &Peer::new(&host, config.data_service_listen_port),
+        &Peer::new(&host, config.data_service_listen_port, None),
         config.data_service_listen_port,
         MagicNumbers::FileComing,
         &packet.serialize(),
@@ -394,7 +394,7 @@ pub extern "C" fn airx_respond_to_file(
     let packet = FileReceiveResponsePacket::new(
         file_id, file_size, file_path, accept);
     let _ = DataService::send_data_with_retry(
-        &Peer::new(&host, config.data_service_listen_port),
+        &Peer::new(&host, config.data_service_listen_port, None),
         config.data_service_listen_port,
         MagicNumbers::FileReceiveResponse,
         &packet.serialize(),

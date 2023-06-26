@@ -86,7 +86,7 @@ pub fn handle(
         let data_packet = FilePartPacket::new(
             packet.file_id(), offset, bytes_read as u32, Box::from(&buffer[..bytes_read]),
         );
-        let peer = Peer::from(&ipv4addr, context.port());
+        let peer = Peer::from(&ipv4addr, context.port(), None);
         let _ = DataService::send_data_with_retry(
             &peer, context.port(), MagicNumbers::FilePart, &data_packet.serialize(),
             Duration::from_millis(TIMEOUT_MILLIS),

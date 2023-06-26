@@ -12,9 +12,10 @@ use crate::packet::protocol::serialize::Serialize;
 // 2 bytes:  server port
 // 1 byte:   group identity
 // 1 byte:   need response?
+// N bytes:  host name
 // 2 bytes:  hash of (addr,port,id)
-// 12 bytes in total
-pub const PACKET_SIZE: usize = 12;
+// 16+N bytes in total
+pub const PACKET_SIZE: usize = 16;
 const MAGIC_NUMBER: u16 = 0x8964;
 
 pub struct DiscoveryPacket {
@@ -23,6 +24,7 @@ pub struct DiscoveryPacket {
     server_port: u16,
     group_identity: u8,
     need_response: bool,
+    host_name: String,
 }
 
 pub enum DiscoveryPacketError {
@@ -78,12 +80,15 @@ impl Hash<u16> for DiscoveryPacket {
 impl Serialize<[u8; PACKET_SIZE], DiscoveryPacketError> for DiscoveryPacket {
     fn serialize(&self) -> [u8; PACKET_SIZE] {
         let mut bytes = [0u8; PACKET_SIZE];
+        let host_name_len = self.host_name.len();
         bytes[0..=1].copy_from_slice(&self.magic_number.to_bytes());
         bytes[2..=5].copy_from_slice(&self.sender_address.octets());
         bytes[6..=7].copy_from_slice(&self.server_port.to_bytes());
         bytes[8] = self.group_identity;
-        bytes[9] = if self.need_response { 0b0000_0001 } else { 0b0000_0000 };
-        bytes[10..=11].copy_from_slice(
+        bytes[9] = if self.need_response { 1 } else { 0 };
+        bytes[10..=13].copy_from_slice(&(host_name_len as u32).to_bytes());
+        bytes[14..14 + host_name_len].copy_from_slice(self.host_name.as_bytes());
+        bytes[14 + host_name_len..=14 + host_name_len + 1].copy_from_slice(
             &packet_hash(self.sender_address, self.server_port, self.group_identity).to_bytes());
         bytes
     }
@@ -98,13 +103,14 @@ impl Serialize<[u8; PACKET_SIZE], DiscoveryPacketError> for DiscoveryPacket {
         let address = Ipv4Addr::new(data[2], data[3], data[4], data[5]);
         let server_port = u16::from_bytes([data[6], data[7]]);
         let group_identity = data[8];
-        let hash = u16::from_bytes([data[10], data[11]]);
+        let need_response = data[9] == 1;
+        let host_name_len = u32::from_bytes([data[10], data[11], data[12], data[13]]) as usize;
+        let host_name = String::from_utf8_lossy(&data[14..14 + host_name_len]).to_string();
+        let hash = u16::from_bytes([data[14 + host_name_len], data[14 + host_name_len + 1]]);
 
         if hash != packet_hash(address, server_port, group_identity) {
             return Err(DiscoveryPacketError::InvalidHash);
         }
-
-        let need_response = data[9] == 1;
 
         Ok(
             Self {
@@ -113,6 +119,7 @@ impl Serialize<[u8; PACKET_SIZE], DiscoveryPacketError> for DiscoveryPacket {
                 server_port,
                 group_identity,
                 need_response,
+                host_name,
             }
         )
     }
@@ -126,6 +133,7 @@ impl DiscoveryPacket {
         server_port: u16,
         group_identity: u8,
         need_response: bool,
+        host_name: &String,
     ) -> Self {
         Self {
             magic_number: MAGIC_NUMBER,
@@ -133,6 +141,7 @@ impl DiscoveryPacket {
             server_port,
             group_identity,
             need_response,
+            host_name: host_name.clone(),
         }
     }
 
@@ -151,5 +160,8 @@ impl DiscoveryPacket {
     pub fn need_response(&self) -> bool {
         self.need_response
     }
-}
 
+    pub fn host_name(&self) -> &String {
+        &self.host_name
+    }
+}
