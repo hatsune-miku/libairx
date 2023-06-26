@@ -31,6 +31,7 @@ pub mod service;
 pub mod packet;
 pub mod util;
 pub mod compatibility;
+pub mod proto;
 
 #[export_name = "airx_version"]
 pub extern "C" fn airx_version() -> i32 {
