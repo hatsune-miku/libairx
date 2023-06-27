@@ -167,6 +167,12 @@ impl DiscoveryService {
                     }
                 };
 
+                let size = serialized.len() as u32;
+                let _ = server_socket.send_to(
+                    &size.to_bytes(),
+                    SocketAddrV4::new(local_addr_ipv4, packet.server_port() as u16),
+                );
+
                 match server_socket.send_to(
                     serialized.as_slice(),
                     SocketAddrV4::new(local_addr_ipv4, packet.server_port() as u16),
@@ -237,6 +243,12 @@ impl DiscoveryService {
                         ));
                     }
                 };
+
+                let size = broadcast_packet_bytes.len() as u32;
+                let _ = client_socket.send_to(
+                    &size.to_bytes(),
+                    SocketAddrV4::new(*broadcast_addr_ipv4, server_port),
+                );
 
                 let _ = client_socket.send_to(
                     broadcast_packet_bytes.as_slice(),

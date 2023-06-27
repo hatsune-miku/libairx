@@ -36,7 +36,7 @@ pub mod extension;
 
 #[export_name = "airx_version"]
 pub extern "C" fn airx_version() -> i32 {
-    20230624
+    20230626
 }
 
 #[export_name = "airx_compatibility_number"]
