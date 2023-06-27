@@ -1,0 +1,11 @@
+syntax = "proto2";
+
+package airx;
+
+message DiscoveryPacket {
+  required uint32 address = 1;
+  required uint32 server_port = 2;
+  required uint32 group_identifier = 3;
+  required bool need_response = 4;
+  required string host_name = 5;
+}

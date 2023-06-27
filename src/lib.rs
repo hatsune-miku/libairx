@@ -31,10 +31,12 @@ pub mod service;
 pub mod packet;
 pub mod util;
 pub mod compatibility;
+pub mod proto;
+pub mod extension;
 
 #[export_name = "airx_version"]
 pub extern "C" fn airx_version() -> i32 {
-    20230624
+    20230626
 }
 
 #[export_name = "airx_compatibility_number"]
@@ -52,7 +54,7 @@ pub extern "C" fn airx_init() {
         .logger(Logger::builder().build("libairx", LevelFilter::Trace))
         .build(Root::builder().appender("stdout").build(LevelFilter::Trace)) {
         let _ = log4rs::init_config(logger_config);
-        info!("libairx initialized.");
+        info!("lib: Initialized.");
     }
 }
 
@@ -63,7 +65,7 @@ pub unsafe extern "C" fn airx_create_service(
     text_service_listen_addr: *mut c_char,
     text_service_listen_addr_len: u32,
     text_service_listen_port: u16,
-    group_identity: u8,
+    group_identity: u32,
 ) -> *mut AirXService {
     let addr = string_from_lengthen_ptr(
         text_service_listen_addr, text_service_listen_addr_len);
@@ -81,7 +83,7 @@ pub unsafe extern "C" fn airx_create_service(
         Err(_) => std::ptr::null_mut(),
     };
 
-    info!("lib: AirX service created (addr={}:{},gid={})",
+    info!("lib: AirX config created (addr={}:{},gid={})",
           addr, text_service_listen_port, group_identity);
 
     airx
@@ -205,12 +207,12 @@ pub extern "C" fn airx_data_service(
         Box::new(file_part_callback),
     );
 
-    info!("lib: Text service starting (addr={},port={})",
+    info!("lib: Data service starting (addr={},port={})",
           config.text_service_listen_addr, config.data_service_listen_port);
 
     let _ = DataService::run(context);
 
-    info!("lib: Text service stopped");
+    info!("lib: Data service stopped");
 }
 
 #[deprecated]
@@ -277,7 +279,7 @@ pub extern "C" fn airx_send_text(
     };
 
     let _ = DataService::send_data_with_retry(
-        &Peer::new(&host, config.data_service_listen_port),
+        &Peer::new(&host, config.data_service_listen_port, None),
         config.data_service_listen_port,
         MagicNumbers::Text,
         &text_packet.serialize(),
@@ -367,7 +369,7 @@ pub extern "C" fn airx_try_send_file(
 
     let packet = FileComingPacket::new(metadata.len(), file_path.clone());
     let _ = DataService::send_data_with_retry(
-        &Peer::new(&host, config.data_service_listen_port),
+        &Peer::new(&host, config.data_service_listen_port, None),
         config.data_service_listen_port,
         MagicNumbers::FileComing,
         &packet.serialize(),
@@ -394,7 +396,7 @@ pub extern "C" fn airx_respond_to_file(
     let packet = FileReceiveResponsePacket::new(
         file_id, file_size, file_path, accept);
     let _ = DataService::send_data_with_retry(
-        &Peer::new(&host, config.data_service_listen_port),
+        &Peer::new(&host, config.data_service_listen_port, None),
         config.data_service_listen_port,
         MagicNumbers::FileReceiveResponse,
         &packet.serialize(),

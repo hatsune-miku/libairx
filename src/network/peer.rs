@@ -7,6 +7,7 @@ use std::net::{Ipv4Addr};
 pub struct Peer {
     host: String,
     port: u16,
+    host_name: Option<String>,
 }
 
 impl fmt::Display for Peer {
@@ -33,17 +34,25 @@ impl PartialEq for Peer {
 
 #[allow(dead_code)]
 impl Peer {
-    pub fn from(socket_addr: &Ipv4Addr, port: u16) -> Self {
+    pub fn from(socket_addr: &Ipv4Addr, port: u16, host_name: Option<&String>) -> Self {
         Self {
             host: socket_addr.to_string(),
             port,
+            host_name: match host_name {
+                Some(name) => Some(name.clone()),
+                None => None,
+            },
         }
     }
 
-    pub fn new(host: &String, port: u16) -> Self {
+    pub fn new(host: &String, port: u16, host_name: Option<&String>) -> Self {
         Self {
             host: host.clone(),
             port,
+            host_name: match host_name {
+                Some(name) => Some(name.clone()),
+                None => None,
+            },
         }
     }
 
@@ -53,5 +62,12 @@ impl Peer {
 
     pub fn port(&self) -> u16 {
         self.port
+    }
+
+    pub fn host_name(&self) -> Option<&String> {
+        match &self.host_name {
+            Some(name) => Some(name),
+            None => None,
+        }
     }
 }
