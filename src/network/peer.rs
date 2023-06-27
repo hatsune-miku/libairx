@@ -1,4 +1,3 @@
-use std::fmt;
 use std::hash::Hash;
 use std::net::{Ipv4Addr};
 
@@ -8,12 +7,6 @@ pub struct Peer {
     host: String,
     port: u16,
     host_name: Option<String>,
-}
-
-impl fmt::Display for Peer {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(f, "{}", self.host)
-    }
 }
 
 impl Hash for Peer {
@@ -29,6 +22,17 @@ impl PartialEq for Peer {
 
     fn ne(&self, other: &Self) -> bool {
         !self.eq(other)
+    }
+}
+
+impl ToString for Peer {
+    fn to_string(&self) -> String {
+        format!(
+            "{}-{}:{}",
+            escape_host_name(&self.host_name),
+            self.host,
+            self.port,
+        )
     }
 }
 
@@ -69,5 +73,12 @@ impl Peer {
             Some(name) => Some(name),
             None => None,
         }
+    }
+}
+
+fn escape_host_name(host_name: &Option<String>) -> String {
+    match host_name {
+        Some(x) => x.clone(),
+        None => String::from("<empty>"),
     }
 }

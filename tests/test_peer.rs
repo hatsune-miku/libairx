@@ -9,4 +9,5 @@ fn host() {
 
     assert!(peer1 == peer2);
     assert!(peer1 != peer3);
+    assert_eq!(peer2.to_string(), String::from("M78-114.51.41.91:9819"));
 }

@@ -8,7 +8,7 @@ pub struct AirXServiceConfig {
     pub discovery_service_client_port: u16,
     pub text_service_listen_addr: String,
     pub data_service_listen_port: u16,
-    pub group_identity: u32,
+    pub group_identifier: u32,
 }
 
 impl Clone for AirXServiceConfig {
@@ -18,7 +18,7 @@ impl Clone for AirXServiceConfig {
             discovery_service_client_port: self.discovery_service_client_port,
             text_service_listen_addr: self.text_service_listen_addr.clone(),
             data_service_listen_port: self.data_service_listen_port,
-            group_identity: self.group_identity,
+            group_identifier: self.group_identifier,
         }
     }
 }

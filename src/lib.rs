@@ -65,7 +65,7 @@ pub unsafe extern "C" fn airx_create_service(
     text_service_listen_addr: *mut c_char,
     text_service_listen_addr_len: u32,
     text_service_listen_port: u16,
-    group_identity: u32,
+    group_identifier: u32,
 ) -> *mut AirXService {
     let addr = string_from_lengthen_ptr(
         text_service_listen_addr, text_service_listen_addr_len);
@@ -75,7 +75,7 @@ pub unsafe extern "C" fn airx_create_service(
         discovery_service_client_port,
         text_service_listen_addr: addr.clone(),
         data_service_listen_port: text_service_listen_port,
-        group_identity,
+        group_identifier,
     };
     let airx = AirXService::new(&config);
     let airx = match airx {
@@ -84,7 +84,7 @@ pub unsafe extern "C" fn airx_create_service(
     };
 
     info!("lib: AirX config created (addr={}:{},gid={})",
-          addr, text_service_listen_port, group_identity);
+          addr, text_service_listen_port, group_identifier);
 
     airx
 }
@@ -105,14 +105,14 @@ pub extern "C" fn airx_lan_discovery_service(
     info!("lib: Discovery service starting (cp={},sp={},gid={})",
           config.discovery_service_client_port,
           config.discovery_service_server_port,
-          config.group_identity);
+          config.group_identifier);
 
     let _ = DiscoveryService::run(
         config.discovery_service_client_port,
         config.discovery_service_server_port,
         peers_ptr,
         Box::new(move || should_interrupt()),
-        config.group_identity,
+        config.group_identifier,
     );
 
     info!("lib: Discovery service stopped.");
@@ -223,7 +223,7 @@ pub extern "C" fn airx_lan_broadcast(airx_ptr: *mut AirXService) -> bool {
     DiscoveryService::broadcast_discovery_request(
         config.discovery_service_client_port,
         config.discovery_service_server_port,
-        config.group_identity,
+        config.group_identifier,
     ).is_ok()
 }
 
