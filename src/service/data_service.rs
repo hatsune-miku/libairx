@@ -53,6 +53,21 @@ impl DataService {
         }
     }
 
+    pub fn data_session<F>(
+        peer: &Peer,
+        port: u16,
+        connect_timeout: Duration,
+        session: &mut F,
+    ) -> Result<(), io::Error> where F: FnMut(&mut DataTransmission) {
+        let mut socket = Socket::connect(peer.host(), port, connect_timeout)?;
+        let mut dt = DataTransmission::from(&mut socket);
+
+        session(&mut dt);
+
+        let _ = socket.close();
+        Ok(())
+    }
+
     fn dispatch_data_packet(
         packet: &DataPacket,
         socket_addr: SocketAddr,
