@@ -70,6 +70,7 @@ impl DataService {
     }
 
     fn dispatch_data_packet(
+        tt: &mut DataTransmission,
         packet: &DataPacket,
         socket_addr: SocketAddr,
         context: &DataServiceContext
@@ -78,12 +79,13 @@ impl DataService {
             Some(MagicNumbers::Text) => text_packet_handler::handle(packet, &socket_addr, context),
             Some(MagicNumbers::FileComing) => file_coming_packet_handler::handle(packet, &socket_addr, context),
             Some(MagicNumbers::FileReceiveResponse) => file_receive_response_packet_handler::handle(packet, &socket_addr, context),
-            Some(MagicNumbers::FilePart) => file_part_packet_handler::handle(packet, &socket_addr, context),
+            Some(MagicNumbers::FilePart) => file_part_packet_handler::handle(tt, packet, &socket_addr, context),
+            Some(MagicNumbers::FilePartResponse) => (),
             _ => warn!("Unknown magic number.")
         }
     }
 
-    fn handle_peer(stream: TcpStream, context: &DataServiceContext) {
+    fn handle_peer(stream: TcpStream, context: DataServiceContext) {
         let socket_addr = match stream.peer_addr() {
             Ok(addr) => addr,
             Err(_) => {
@@ -112,7 +114,7 @@ impl DataService {
             };
 
             info!("Received data packet from {}, magic_nubmer={}.", socket_addr, data_packet.magic_number());
-            Self::dispatch_data_packet(&data_packet, socket_addr, context);
+            Self::dispatch_data_packet(&mut tt, &data_packet, socket_addr, &context);
         }
         info!("Session with {} is ended.", socket_addr);
     }
@@ -129,7 +131,7 @@ impl DataService {
                 Ok(s) => {
                     let thread_context = context.clone();
                     std::thread::spawn(move || {
-                        Self::handle_peer(s, &thread_context);
+                        Self::handle_peer(s, thread_context);
                     });
                 }
                 Err(ref e) if e.kind() == WouldBlock || e.kind() == TimedOut => {

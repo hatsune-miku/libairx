@@ -10,7 +10,7 @@ use crate::packet::data::local::file_sending_packet::{FileSendingPacket, FileSen
 use crate::packet::data::magic_numbers::MagicNumbers;
 use crate::packet::data_packet::DataPacket;
 use crate::packet::data_transmission::DataTransmission;
-use crate::packet::protocol::data::SendDataWithRetry;
+use crate::packet::protocol::data::{ReadDataWithRetry, SendDataWithRetry};
 use crate::packet::protocol::serialize::Serialize;
 use crate::service::context::data_service_context::DataServiceContext;
 use crate::service::data_service::DataService;
@@ -106,6 +106,24 @@ pub fn handle(
                 return;
             }
             info!("Sent file part packet ({} bytes).", bytes_read);
+
+            // Get response.
+            let response = match dt.read_data_with_retry() {
+                Ok(r) => r,
+                Err(e) => {
+                    error!("Failed to read file receive response packet ({}).", e);
+                    update_status(FileSendingStatus::Error);
+                    return;
+                }
+            };
+            let _ = match DataPacket::deserialize(&response) {
+                Ok(p) => p,
+                Err(e) => {
+                    error!("Failed to deserialize file receive response packet ({:?}).", e);
+                    update_status(FileSendingStatus::Error);
+                    return;
+                }
+            };
 
             // Create local notification packet, update status and notify.
             let local_packet = FileSendingPacket::new(
