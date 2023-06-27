@@ -28,7 +28,7 @@ impl PartialEq for Peer {
 impl ToString for Peer {
     fn to_string(&self) -> String {
         format!(
-            "{}-{}:{}",
+            "{}@{}:{}",
             escape_host_name(&self.host_name),
             self.host,
             self.port,

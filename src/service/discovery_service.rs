@@ -147,6 +147,8 @@ impl DiscoveryService {
             return Err("Group identity mismatch".into());
         }
 
+        info!("Received discovery packet from {} - {}", packet.host_name(), sender_address);
+
         if packet.need_response() {
             // Respond to our new friend on behalf of each local address.
             info!("Responding to discovery request from {}", sender_address);
@@ -188,12 +190,14 @@ impl DiscoveryService {
             }
         }
 
+        info!("Adding peer {} to peer set.", sender_address);
         if let Ok(mut locked) = peers.lock() {
             locked.insert(Peer::from(
                 &ipv4_address,
                 packet.server_port() as u16,
                 Some(&packet.host_name().to_string())
             ));
+            info!("Added peer {} to peer set.", sender_address);
         }
 
         Ok(())
@@ -245,15 +249,21 @@ impl DiscoveryService {
                 };
 
                 let size = broadcast_packet_bytes.len() as u32;
-                let _ = client_socket.send_to(
+                let result1 = client_socket.send_to(
                     &size.to_bytes(),
                     SocketAddrV4::new(*broadcast_addr_ipv4, server_port),
                 );
 
-                let _ = client_socket.send_to(
+                let result2 = client_socket.send_to(
                     broadcast_packet_bytes.as_slice(),
                     SocketAddrV4::new(*broadcast_addr_ipv4, server_port),
                 );
+
+                if result1.is_ok() && result2.is_ok() {
+                    info!("Successfully broadcast discovery packet to {}", broadcast_addr_ipv4);
+                } else {
+                    error!("Failed to broadcast discovery packet to {}", broadcast_addr_ipv4);
+                }
             }
         }
         Ok(())
@@ -276,7 +286,7 @@ impl DiscoveryService {
             ));
         }
 
-        info!("Discovery service online and ready to accept connections.");
+        info!("Discovery service online and ready for connections.");
 
         loop {
             let packet_size = match server_socket.recv(&mut size_buffer) {

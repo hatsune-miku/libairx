@@ -244,6 +244,8 @@ pub extern "C" fn airx_get_peers(
                 .join(",");
             let bytes = joined.as_bytes();
 
+            info!("lib: Get peers (peers={})", joined);
+
             unsafe {
                 copy(bytes.as_ptr(), buffer as *mut u8, bytes.len());
                 *buffer.offset(bytes.len() as isize) = 0;
@@ -251,6 +253,7 @@ pub extern "C" fn airx_get_peers(
             return bytes.len() as u32;
         }
     }
+    error!("lib: Failed to get peers");
     0
 }
 
@@ -367,6 +370,8 @@ pub extern "C" fn airx_try_send_file(
         }
     };
 
+    info!("lib: Sending file info {} to (addr={}:{})",
+        file_path, host, config.data_service_listen_port);
     let packet = FileComingPacket::new(metadata.len(), file_path.clone());
     let _ = DataService::send_data_with_retry(
         &Peer::new(&host, config.data_service_listen_port, None),

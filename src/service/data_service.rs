@@ -13,7 +13,7 @@ use crate::packet::data_packet::DataPacket;
 use crate::packet::protocol::data::{ReadDataWithRetry, SendDataWithRetry};
 use crate::packet::protocol::serialize::Serialize;
 use crate::service::context::data_service_context::DataServiceContext;
-use crate::service::handler::{file_coming_packet_handler, file_receive_response_packet_handler, text_packet_handler};
+use crate::service::handler::{file_coming_packet_handler, file_part_packet_handler, file_receive_response_packet_handler, text_packet_handler};
 
 pub type OnPacketReceivedFunctionType<T> = Box<dyn Fn(&T, &SocketAddr) + Send + Sync>;
 
@@ -77,6 +77,7 @@ impl DataService {
             Some(MagicNumbers::Text) => text_packet_handler::handle(packet, &socket_addr, context),
             Some(MagicNumbers::FileComing) => file_coming_packet_handler::handle(packet, &socket_addr, context),
             Some(MagicNumbers::FileReceiveResponse) => file_receive_response_packet_handler::handle(packet, &socket_addr, context),
+            Some(MagicNumbers::FilePart) => file_part_packet_handler::handle(packet, &socket_addr, context),
             _ => warn!("Unknown magic number.")
         }
     }
@@ -116,7 +117,7 @@ impl DataService {
         let server_socket = TcpServer::create_and_listen(&context.host(), context.port())?;
         let mut timeout_counter = 0;
 
-        info!("Data service online and ready to accept connections.");
+        info!("Data service online and ready for connections.");
 
         for stream in server_socket.incoming() {
             match stream {
