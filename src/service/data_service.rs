@@ -109,6 +109,7 @@ impl DataService {
             }
         };
 
+        info!("Received data packet from {}, magic_nubmer={}.", socket_addr, data_packet.magic_number());
         Self::dispatch_data_packet(&data_packet, socket_addr, context);
     }
 

@@ -105,6 +105,7 @@ pub fn handle(
                 update_status(FileSendingStatus::Error);
                 return;
             }
+            info!("Sent file part packet ({} bytes).", bytes_read);
 
             // Create local notification packet, update status and notify.
             let local_packet = FileSendingPacket::new(
