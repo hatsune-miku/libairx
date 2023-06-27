@@ -116,6 +116,8 @@ impl DataService {
         let server_socket = TcpServer::create_and_listen(&context.host(), context.port())?;
         let mut timeout_counter = 0;
 
+        info!("Data service online and ready to accept connections.");
+
         for stream in server_socket.incoming() {
             match stream {
                 Ok(s) => {

@@ -54,7 +54,7 @@ pub extern "C" fn airx_init() {
         .logger(Logger::builder().build("libairx", LevelFilter::Trace))
         .build(Root::builder().appender("stdout").build(LevelFilter::Trace)) {
         let _ = log4rs::init_config(logger_config);
-        info!("libairx initialized.");
+        info!("lib: Initialized.");
     }
 }
 
@@ -83,7 +83,7 @@ pub unsafe extern "C" fn airx_create_service(
         Err(_) => std::ptr::null_mut(),
     };
 
-    info!("lib: AirX service created (addr={}:{},gid={})",
+    info!("lib: AirX config created (addr={}:{},gid={})",
           addr, text_service_listen_port, group_identity);
 
     airx
@@ -207,12 +207,12 @@ pub extern "C" fn airx_data_service(
         Box::new(file_part_callback),
     );
 
-    info!("lib: Text service starting (addr={},port={})",
+    info!("lib: Data service starting (addr={},port={})",
           config.text_service_listen_addr, config.data_service_listen_port);
 
     let _ = DataService::run(context);
 
-    info!("lib: Text service stopped");
+    info!("lib: Data service stopped");
 }
 
 #[deprecated]

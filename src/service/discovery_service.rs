@@ -276,6 +276,8 @@ impl DiscoveryService {
             ));
         }
 
+        info!("Discovery service online and ready to accept connections.");
+
         loop {
             let packet_size = match server_socket.recv(&mut size_buffer) {
                 Ok(_) => u32::from_bytes(size_buffer),
