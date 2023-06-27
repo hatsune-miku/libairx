@@ -14,6 +14,7 @@ use crate::packet::protocol::data::{ReadDataWithRetry, SendDataWithRetry};
 use crate::packet::protocol::serialize::Serialize;
 use crate::service::context::data_service_context::DataServiceContext;
 use crate::service::handler::{file_coming_packet_handler, file_part_packet_handler, file_receive_response_packet_handler, text_packet_handler};
+use crate::service::ShouldInterruptFunctionType;
 
 pub type OnPacketReceivedFunctionType<T> = Box<dyn Fn(&T, &SocketAddr) + Send + Sync>;
 
@@ -93,28 +94,31 @@ impl DataService {
         let mut socket = Socket::from(stream);
         let mut tt = DataTransmission::from(&mut socket);
 
-        let raw_data = match tt.read_data_with_retry() {
-            Ok(s) => s,
-            Err(e) => {
-                warn!("Failed to read data ({}).", e);
-                return;
-            }
-        };
+        loop {
+            let raw_data = match tt.read_data_with_retry() {
+                Ok(s) => s,
+                Err(e) => {
+                    warn!("Failed to read data ({}).", e);
+                    break;
+                }
+            };
 
-        let data_packet = match DataPacket::deserialize(&raw_data) {
-            Ok(p) => p,
-            Err(e) => {
-                warn!("Failed to deserialize data ({:?}).", e);
-                return;
-            }
-        };
+            let data_packet = match DataPacket::deserialize(&raw_data) {
+                Ok(p) => p,
+                Err(e) => {
+                    warn!("Failed to deserialize data ({:?}).", e);
+                    break;
+                }
+            };
 
-        info!("Received data packet from {}, magic_nubmer={}.", socket_addr, data_packet.magic_number());
-        Self::dispatch_data_packet(&data_packet, socket_addr, context);
+            info!("Received data packet from {}, magic_nubmer={}.", socket_addr, data_packet.magic_number());
+            Self::dispatch_data_packet(&data_packet, socket_addr, context);
+        }
+        info!("Session with {} is ended.", socket_addr);
     }
 
     #[allow(unused_assignments)]
-    pub fn run(context: DataServiceContext) -> Result<(), io::Error> {
+    pub fn run(context: DataServiceContext, should_interrupt: ShouldInterruptFunctionType) -> Result<(), io::Error> {
         let server_socket = TcpServer::create_and_listen(&context.host(), context.port())?;
         let mut timeout_counter = 0;
 
@@ -123,7 +127,10 @@ impl DataService {
         for stream in server_socket.incoming() {
             match stream {
                 Ok(s) => {
-                    Self::handle_peer(s, &context);
+                    let thread_context = context.clone();
+                    std::thread::spawn(move || {
+                        Self::handle_peer(s, &thread_context);
+                    });
                 }
                 Err(ref e) if e.kind() == WouldBlock || e.kind() == TimedOut => {
                     // Check if interrupted.
@@ -132,7 +139,7 @@ impl DataService {
                     // Check if timeout.
                     if timeout_counter > TCP_ACCEPT_TIMEOUT_COUNT {
                         timeout_counter = 0;
-                        if (context.should_interrupt())() {
+                        if should_interrupt() {
                             info!("Data service is interrupted by caller.");
                             break;
                         }

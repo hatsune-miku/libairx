@@ -200,17 +200,16 @@ pub extern "C" fn airx_data_service(
     let context = DataServiceContext::new(
         config.text_service_listen_addr.to_string(),
         config.data_service_listen_port,
-        Box::new(should_interrupt_callback),
-        Box::new(text_callback),
-        Box::new(file_coming_callback),
-        Box::new(file_sending_callback),
-        Box::new(file_part_callback),
+        Arc::new(Box::new(text_callback)),
+        Arc::new(Box::new(file_coming_callback)),
+        Arc::new(Box::new(file_sending_callback)),
+        Arc::new(Box::new(file_part_callback)),
     );
 
     info!("lib: Data service starting (addr={},port={})",
           config.text_service_listen_addr, config.data_service_listen_port);
 
-    let _ = DataService::run(context);
+    let _ = DataService::run(context, Box::new(should_interrupt_callback));
 
     info!("lib: Data service stopped");
 }
