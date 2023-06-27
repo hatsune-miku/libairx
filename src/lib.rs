@@ -32,6 +32,7 @@ pub mod packet;
 pub mod util;
 pub mod compatibility;
 pub mod proto;
+pub mod extension;
 
 #[export_name = "airx_version"]
 pub extern "C" fn airx_version() -> i32 {
@@ -64,7 +65,7 @@ pub unsafe extern "C" fn airx_create_service(
     text_service_listen_addr: *mut c_char,
     text_service_listen_addr_len: u32,
     text_service_listen_port: u16,
-    group_identity: u8,
+    group_identity: u32,
 ) -> *mut AirXService {
     let addr = string_from_lengthen_ptr(
         text_service_listen_addr, text_service_listen_addr_len);

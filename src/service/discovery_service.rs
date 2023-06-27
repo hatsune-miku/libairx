@@ -8,10 +8,11 @@ use std::io::ErrorKind::{TimedOut, WouldBlock};
 use std::net::{IpAddr, Ipv4Addr, SocketAddrV4, UdpSocket};
 use std::time::Duration;
 use log::{error, info};
-use crate::packet::discovery_packet;
-use crate::packet::discovery_packet::DiscoveryPacket;
-use crate::packet::protocol::serialize::Serialize;
+use protobuf::Message;
+use crate::compatibility::unified_endian::UnifiedEndian;
+use crate::proto::discovery_packet::DiscoveryPacket;
 use crate::util::os::OSUtil;
+use crate::extension::ip_to_u32::ToU32;
 
 const DISCOVERY_TIMEOUT_MILLIS: u64 = 1000;
 
@@ -112,29 +113,37 @@ impl DiscoveryService {
         }
     }
 
+    // 说时迟那时快，只见一道金光从天而降，正是那金刚不坏神功的绝学——金刚伏魔圈！
+    // 然而，这一招却是不中不出，只见那金光一闪，竟然被那人一掌击开，露出了那人的真身。
+    // 原来那人身穿一件青色长袍，腰间束着一条白色长带，脸上戴着一张白布口罩，只露出一双眼睛，眼睛中闪烁着一丝寒光。
+    // 那人身材高大，身形甚是魁梧，但却是一副骨瘦如柴的模样，只是那双眼睛却是显得格外的亮，格外的炯炯有神。
+    // 那人一掌击开了金光，却是不见了踪影，只见那人身形一闪，已经来到了那人的身前，右掌猛地拍出，正是那金刚伏魔圈。
+    // 那人只觉得一股强大的力量袭来，只得连忙抬起手来，双掌相交，只听得“咔嚓”一声，那人的右手已经被那人的掌力震断了。
+    // 那人只觉得一股强大的力量袭来，只得连忙抬起手来，双掌相交，只听得“咔嚓”一声，那人的右手已经被那人的掌力震断了。
+    // 以上是Copilot的大作，我只开了个说时迟的头，无敌
     pub fn peers(&self) -> PeerCollectionType {
         self.peer_set_ptr.clone()
     }
 
+    // Suppress: `std::` can't be omitted but IDEA thinks it can.
+    #[allow(unused_qualifications)]
     pub fn handle_new_peer(
         local_addresses: HashSet<Ipv4Addr>,
         server_socket: &UdpSocket,
-        peer_set: PeerCollectionType,
-        buf: [u8; discovery_packet::PACKET_SIZE],
-        group_identity: u8,
+        peers: PeerCollectionType,
+        packet: DiscoveryPacket,
+        group_identifier: u32,
     ) -> Result<(), Box<dyn std::error::Error>> {
-        // From self?
-        // Deserialize packet.
-        // Not handshake message?
-        let packet = DiscoveryPacket::deserialize(&buf)?;
-        let sender_address = packet.sender_address();
-        if local_addresses.contains(&sender_address) {
+        let sender_address = packet.address();
+        let ipv4_address = Ipv4Addr::from(sender_address);
+        if local_addresses.contains(&ipv4_address) {
             return Err("Received packet from self".into());
         }
 
-        if packet.group_identity() != group_identity {
+        if packet.group_identifier() != group_identifier {
             // Group identity mismatch.
-            info!("Dropped packet from different group.");
+            info!("Dropped packet from different group (mine={}, theirs={}).",
+                group_identifier, packet.group_identifier());
             return Err("Group identity mismatch".into());
         }
 
@@ -143,32 +152,48 @@ impl DiscoveryService {
             info!("Responding to discovery request from {}", sender_address);
             let self_hostname = OSUtil::hostname();
             for local_addr_ipv4 in local_addresses {
-                let response_packet = DiscoveryPacket::new(
-                    local_addr_ipv4,
-                    packet.server_port(),
-                    group_identity,
-                    false,
-                    &self_hostname,
-                );
-                let _ = server_socket.send_to(
-                    &response_packet.serialize(),
-                    SocketAddrV4::new(packet.sender_address(), packet.server_port()),
-                );
+                let mut response_packet = DiscoveryPacket::new();
+                response_packet.set_address(local_addr_ipv4.into());
+                response_packet.set_server_port(packet.server_port());
+                response_packet.set_group_identifier(group_identifier);
+                response_packet.set_need_response(false);
+                response_packet.set_host_name(self_hostname.clone());
+
+                let serialized = match response_packet.write_to_bytes() {
+                    Ok(x) => x,
+                    Err(e) => {
+                        error!("Failed to serialize response packet: {}", e);
+                        return Err(e.into());
+                    }
+                };
+
+                match server_socket.send_to(
+                    serialized.as_slice(),
+                    SocketAddrV4::new(local_addr_ipv4, packet.server_port() as u16),
+                ) {
+                    Ok(_) => {
+                        info!("Successfully response packet to {}", sender_address);
+                    }
+                    Err(e) => {
+                        error!("Failed to send response packet: {}", e);
+                        return Err(e.into());
+                    }
+                }
             }
         }
 
-        if let Ok(mut locked) = peer_set.lock() {
+        if let Ok(mut locked) = peers.lock() {
             locked.insert(Peer::from(
-                &sender_address,
-                packet.server_port(),
-                Some(packet.host_name())
+                &ipv4_address,
+                packet.server_port() as u16,
+                Some(&packet.host_name().to_string())
             ));
         }
 
         Ok(())
     }
 
-    pub fn broadcast_discovery_request(client_port: u16, server_port: u16, group_identity: u8) -> Result<(), io::Error> {
+    pub fn broadcast_discovery_request(client_port: u16, server_port: u16, group_identifier: u32) -> Result<(), io::Error> {
         let client_socket = Self::create_broadcast_socket(client_port)?;
         let broadcast_addresses = match scan_broadcast_addresses() {
             Ok(x) => x,
@@ -192,52 +217,33 @@ impl DiscoveryService {
         };
 
         let self_hostname = OSUtil::hostname();
+        let mut broadcast_packet = DiscoveryPacket::new();
+        broadcast_packet.set_server_port(server_port as u32);
+        broadcast_packet.set_group_identifier(group_identifier);
+        broadcast_packet.set_need_response(true);
+        broadcast_packet.set_host_name(self_hostname.clone());
+
         for broadcast_addr_ipv4 in &broadcast_addresses {
             for local_addr_ipv4 in &local_addresses {
-                let broadcast_packet = DiscoveryPacket::new(
-                    local_addr_ipv4.clone(),
-                    server_port,
-                    group_identity,
-                    true,
-                    &self_hostname,
-                );
-                let broadcast_packet_bytes = broadcast_packet.serialize();
+                broadcast_packet.set_address(local_addr_ipv4.clone().to_u32());
+
+                let broadcast_packet_bytes = match broadcast_packet.write_to_bytes() {
+                    Ok(x) => x,
+                    Err(e) => {
+                        error!("Failed to serialize broadcast packet: {}", e);
+                        return Err(io::Error::new(
+                            io::ErrorKind::Other,
+                            format!("Failed to serialize broadcast packet: {}", e),
+                        ));
+                    }
+                };
+
                 let _ = client_socket.send_to(
-                    &broadcast_packet_bytes,
+                    broadcast_packet_bytes.as_slice(),
                     SocketAddrV4::new(*broadcast_addr_ipv4, server_port),
                 );
             }
         }
-
-        //
-        //     ==================================
-        //     For current network interface only
-        //     ==================================
-        //
-        //      fn get_local_ipv4_address(socket: &UdpSocket) -> Result<Ipv4Addr, io::Error> {
-        //          let ip = socket.local_addr()?.ip();
-        //          if let IpAddr::V4(ip) = ip {
-        //              Ok(ip)
-        //          } else {
-        //              Err(io::Error::new(
-        //                  io::ErrorKind::Other,
-        //                  "Local address is not an IPv4 address.",
-        //              ))
-        //          }
-        //      }
-        //
-        //     let local_ip = get_local_ipv4_address(client_socket)?;
-        //     let broadcast_address = IpAddr::V4(
-        //         Ipv4Addr::new(
-        //             local_ip.octets()[0] | 0b11111111,
-        //             local_ip.octets()[1] | 0b11111111,
-        //             local_ip.octets()[2] | 0b11111111,
-        //             local_ip.octets()[3] | 0b11111111,
-        //         )
-        //     );
-        //     let target_address = SocketAddr::new(broadcast_address, server_port as u16);
-        //
-
         Ok(())
     }
 
@@ -246,37 +252,62 @@ impl DiscoveryService {
         server_port: u16,
         peer_set_ptr: PeerCollectionType,
         should_interrupt: ShouldInterruptFunctionType,
-        group_identity: u8,
+        group_identifier: u32,
     ) -> Result<(), io::Error> {
         let server_socket = Self::create_broadcast_socket(server_port)?;
-        let mut buf: [u8; discovery_packet::PACKET_SIZE] = [0u8; discovery_packet::PACKET_SIZE];
+        let mut size_buffer = [0u8; 4];
 
-        let _ = Self::broadcast_discovery_request(client_port, server_port, group_identity);
+        if let Err(_) = Self::broadcast_discovery_request(client_port, server_port, group_identifier) {
+            return Err(io::Error::new(
+                io::ErrorKind::Other,
+                "Failed to broadcast discovery request.",
+            ));
+        }
 
         loop {
-            match server_socket.recv(&mut buf) {
-                Ok(_) => {
-                    if let Ok(local_addresses) = scan_local_addresses() {
-                        let _ = Self::handle_new_peer(
-                            local_addresses,
-                            &server_socket,
-                            peer_set_ptr.clone(),
-                            buf,
-                            group_identity,
-                        );
-                    }
-                }
-                Err(ref e) if e.kind() == WouldBlock || e.kind() == TimedOut => {
-                    // Check if interrupted.
-                    // Calling should_interrupt() is
-                    // expensive for some frontends like electron.
+            let packet_size = match server_socket.recv(&mut size_buffer) {
+                Ok(_) => u32::from_bytes(size_buffer),
+                Err(e) if e.kind() == WouldBlock || e.kind() == TimedOut => {
                     if should_interrupt() {
                         info!("Discovery service interrupted by caller.");
                         break;
                     }
                     continue;
                 }
-                Err(_) => {
+                Err(e) => {
+                    error!("Failed to receive packet size ({})", e);
+                    break;
+                }
+            };
+
+            let mut buf = vec![0u8; packet_size as usize];
+            match server_socket.recv(&mut buf) {
+                Ok(_) => {
+                    if let Ok(local_addresses) = scan_local_addresses() {
+                        let packet = match DiscoveryPacket::parse_from_bytes(buf.as_slice()) {
+                            Ok(x) => x,
+                            Err(e) => {
+                                error!("Failed to parse discovery packet ({})", e);
+                                continue;
+                            }
+                        };
+                        let _ = Self::handle_new_peer(
+                            local_addresses,
+                            &server_socket,
+                            peer_set_ptr.clone(),
+                            packet,
+                            group_identifier,
+                        );
+                    }
+                }
+                Err(ref e) if e.kind() == WouldBlock || e.kind() == TimedOut => {
+                    if should_interrupt() {
+                        info!("Discovery service interrupted by caller.");
+                        break;
+                    }
+                }
+                Err(e) => {
+                    error!("Failed to receive packet ({})", e);
                     break;
                 }
             }
