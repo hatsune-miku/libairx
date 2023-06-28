@@ -144,7 +144,7 @@ pub extern "C" fn airx_data_service(
         u8, /* file_id */
         u32, /* offset */
         u32, /* length */
-        *const c_char, /* data */
+        *const u8, /* data */
     ),
     should_interrupt: extern "C" fn() -> bool,
 ) {
@@ -188,12 +188,13 @@ pub extern "C" fn airx_data_service(
     };
 
     let file_part_callback = move |file_part_packet: &FilePartPacket, _: &SocketAddr| {
-        let data_cstr = file_part_packet.data().as_ptr();
+        // TODO: SEVERE PERFORMANCE ISSUE
+        let data_cstr = file_part_packet.data().clone().as_ptr();
         file_part_callback_c(
             file_part_packet.file_id(),
             file_part_packet.offset(),
             file_part_packet.length(),
-            data_cstr as *const c_char,
+            data_cstr,
         );
     };
 
