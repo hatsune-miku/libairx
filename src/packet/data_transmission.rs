@@ -27,7 +27,7 @@ impl DataTransmission {
 const SIZE_SIZE: usize = size_of::<u32>();
 
 impl DataTransmission {
-    pub fn send_data_progress_with_retry<F>(&mut self, data: &Vec<u8>, on_progress: F) -> Result<(), io::Error> where F: Fn(u64) {
+    pub fn send_data_progress_with_retry<F>(&mut self, data: &Vec<u8>, mut on_progress: F) -> Result<(), io::Error> where F: FnMut(u64) {
         // Strings are already utf8 encoded.
         let data_len = data.len() as u32;
         let mut buf = vec![0u8; SIZE_SIZE + data_len as usize];

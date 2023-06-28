@@ -68,6 +68,7 @@ pub fn handle(
 
     // Connect to peer, start data transmission and close connection.
     let mut buffer = vec![0u8; BUFFER_SIZE];
+    let mut bytes_sent_total = 0;
     let mut session = |dt: &mut DataTransmission| -> Result<(), io::Error> {
         let mut file = match File::open(filename) {
             Ok(f) => f,
@@ -105,7 +106,8 @@ pub fn handle(
 
             // Send.
             if let Err(e) = dt.send_data_progress_with_retry(&data_packet.serialize(), |bytes_written_total| {
-                info!("Progress {:.2}%", bytes_written_total as f32 / packet.file_size() as f32 * 100.0f32);
+                bytes_sent_total += bytes_written_total;
+                info!("Progress {:.2}%", bytes_sent_total as f32 / packet.file_size() as f32 * 100.0f32);
             }) {
                 error!("Failed to send file part packet ({}).", e);
                 update_status(FileSendingStatus::Error);
