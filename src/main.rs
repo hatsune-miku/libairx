@@ -35,29 +35,30 @@ fn main() {
     peers1.insert(Peer::new(&String::from("127.0.0.1"), 8003, Some(&String::from("t2"))));
 
     let data1 = std::thread::spawn(move || {
-        let text_callback = move |packet: &TextPacket, socket_addr: &SocketAddr| {
+        let text_callback1 = move |packet: &TextPacket, socket_addr: &SocketAddr| {
 
         };
 
-        let file_coming_callback = move |packet: &FileComingPacket, socket_addr: &SocketAddr| {
+        let file_coming_callback1 = move |packet: &FileComingPacket, socket_addr: &SocketAddr| {
 
         };
 
-        let file_sending_callback = move |packet: &FileSendingPacket, socket_addr: &SocketAddr| {
+        let file_sending_callback1 = move |packet: &FileSendingPacket, socket_addr: &SocketAddr| {
 
         };
 
-        let file_part_callback = move |packet: &FilePartPacket, socket_addr: &SocketAddr| {
-
+        let file_part_callback1 = move |packet: &FilePartPacket, socket_addr: &SocketAddr| {
+            let packet = packet;
+            info!(">>>>> Received file part packet from {}.", socket_addr);
         };
 
         let context = DataServiceContext::new(
             String::from("0.0.0.0"),
             8001,
-            Arc::new(Box::from(text_callback)),
-            Arc::new(Box::from(file_coming_callback)),
-            Arc::new(Box::from(file_sending_callback)),
-            Arc::new(Box::from(file_part_callback)),
+            Arc::new(Box::from(text_callback1)),
+            Arc::new(Box::from(file_coming_callback1)),
+            Arc::new(Box::from(file_sending_callback1)),
+            Arc::new(Box::from(file_part_callback1)),
         );
         let _ = DataService::run(context, Box::from(should_interrupt_callback));
     });
@@ -68,11 +69,11 @@ fn main() {
     peers2.insert(Peer::new(&String::from("127.0.0.1"), 8001, Some(&String::from("t1"))));
 
     let data2 = std::thread::spawn(move || {
-        let text_callback = move |packet: &TextPacket, socket_addr: &SocketAddr| {
+        let text_callback2 = move |packet: &TextPacket, socket_addr: &SocketAddr| {
 
         };
 
-        let file_coming_callback = move |packet: &FileComingPacket, socket_addr: &SocketAddr| {
+        let file_coming_callback2 = move |packet: &FileComingPacket, socket_addr: &SocketAddr| {
             let packet = FileReceiveResponsePacket::new(
                 1, packet.file_size(), packet.file_name().clone(), true);
             let _ = DataService::send_once_with_retry(
@@ -84,22 +85,21 @@ fn main() {
             );
         };
 
-        let file_sending_callback = move |packet: &FileSendingPacket, socket_addr: &SocketAddr| {
+        let file_sending_callback2 = move |packet: &FileSendingPacket, socket_addr: &SocketAddr| {
 
         };
 
-        let file_part_callback = move |packet: &FilePartPacket, socket_addr: &SocketAddr| {
-            let packet = packet;
-            info!(">>>>> Received file part packet from {}.", socket_addr);
+        let file_part_callback2 = move |packet: &FilePartPacket, socket_addr: &SocketAddr| {
+
         };
 
         let context = DataServiceContext::new(
             String::from("0.0.0.0"),
             8003,
-            Arc::new(Box::from(text_callback)),
-            Arc::new(Box::from(file_coming_callback)),
-            Arc::new(Box::from(file_sending_callback)),
-            Arc::new(Box::from(file_part_callback)),
+            Arc::new(Box::from(text_callback2)),
+            Arc::new(Box::from(file_coming_callback2)),
+            Arc::new(Box::from(file_sending_callback2)),
+            Arc::new(Box::from(file_part_callback2)),
         );
         let _ = DataService::run(context, Box::from(should_interrupt_callback));
     });

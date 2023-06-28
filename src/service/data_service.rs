@@ -4,6 +4,7 @@ use crate::packet::data_transmission::DataTransmission;
 use std::io;
 use std::io::ErrorKind::{TimedOut, WouldBlock};
 use std::net::{SocketAddr, TcpStream};
+use std::sync::Arc;
 use std::thread::sleep;
 use std::time::Duration;
 use log::{info, warn};
@@ -15,7 +16,7 @@ use crate::service::context::data_service_context::DataServiceContext;
 use crate::service::handler::{file_coming_packet_handler, file_part_packet_handler, file_receive_response_packet_handler, text_packet_handler};
 use crate::service::ShouldInterruptFunctionType;
 
-pub type OnPacketReceivedFunctionType<T> = Box<dyn Fn(&T, &SocketAddr) + Send + Sync>;
+pub type OnPacketReceivedFunctionType<T> = Arc<Box<dyn Fn(&T, &SocketAddr) + Send + Sync>>;
 
 
 const TCP_ACCEPT_WAIT_MILLIS: u64 = 10;
