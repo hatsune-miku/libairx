@@ -1,6 +1,5 @@
 use std::fmt;
 use std::fmt::{Debug, Formatter};
-use std::sync::Arc;
 use crate::compatibility::unified_endian::UnifiedEndian;
 use crate::packet::protocol::serialize::Serialize;
 
@@ -8,8 +7,7 @@ pub struct FilePartPacket {
     file_id: u8,
     offset: u32,
     length: u32,
-    // TODO: SEVERE PERFORMANCE ISSUE
-    data: Arc<Box<[u8]>>,
+    data: Vec<u8>,
 }
 
 // Serialized as:
@@ -25,13 +23,13 @@ impl FilePartPacket {
         file_id: u8,
         offset: u32,
         length: u32,
-        data: Box<[u8]>,
+        data: Vec<u8>,
     ) -> FilePartPacket {
         FilePartPacket {
             file_id,
             offset,
             length,
-            data: Arc::new(data),
+            data,
         }
     }
 
@@ -47,8 +45,8 @@ impl FilePartPacket {
         self.length
     }
 
-    pub fn data(&self) -> Arc<Box<[u8]>> {
-        self.data.clone()
+    pub fn data(&self) -> &Vec<u8> {
+        &self.data
     }
 }
 
@@ -127,13 +125,13 @@ impl Serialize<Vec<u8>, FilePartPacketError> for FilePartPacket {
             return Err(FilePartPacketError::CorruptedData);
         }
 
-        let data = &serialized[BASE_PACKET_SIZE..(BASE_PACKET_SIZE + length as usize)];
+        let data = serialized[BASE_PACKET_SIZE..(BASE_PACKET_SIZE + length as usize)].to_vec();
 
         Ok(FilePartPacket::new(
             file_id,
             offset,
             length,
-            Box::from(data),
+            data,
         ))
     }
 }

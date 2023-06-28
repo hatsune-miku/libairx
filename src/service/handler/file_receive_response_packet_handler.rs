@@ -95,7 +95,7 @@ pub fn handle(
 
             // Create file part packet.
             let file_part_packet = FilePartPacket::new(
-                packet.file_id(), offset, bytes_read as u32, Box::from(&buffer[..bytes_read]),
+                packet.file_id(), offset, bytes_read as u32, buffer[..bytes_read].to_vec(),
             );
 
             // Wrap to generic data packet.
