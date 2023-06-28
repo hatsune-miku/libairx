@@ -65,9 +65,9 @@ pub fn handle(
     let filename = packet.file_name();
 
     let peer = Peer::from(&ipv4addr, context.port(), None);
-    let mut buffer = vec![0u8; BUFFER_SIZE];
 
     // Connect to peer, start data transmission and close connection.
+    let mut buffer = vec![0u8; BUFFER_SIZE];
     let mut session = |dt: &mut DataTransmission| -> Result<(), io::Error> {
         let mut file = match File::open(filename) {
             Ok(f) => f,

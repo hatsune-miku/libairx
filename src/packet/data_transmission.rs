@@ -8,8 +8,8 @@ use log::warn;
 use crate::compatibility::unified_endian::UnifiedEndian;
 use crate::packet::protocol::data;
 
-const PACKET_TRY_TIMES: u64 = 5;
-const TCP_ACCEPT_TRY_WAIT_MILLISECONDS: u64 = 10;
+const PACKET_TRY_TIMES: u64 = 10;
+const TCP_ACCEPT_TRY_WAIT_MILLISECONDS: u64 = 50;
 
 pub struct DataTransmission {
     stream: TcpStream,
@@ -79,6 +79,10 @@ impl DataTransmission {
             break;
         }
 
+        if packet_size == 0 {
+            return Err(last_error);
+        }
+
         remaining_tries = PACKET_TRY_TIMES;
         let mut data_buf = vec![0u8; packet_size as usize];
 
@@ -93,8 +97,8 @@ impl DataTransmission {
                     continue;
                 }
             };
-            on_progress(bytes_read as f32 / packet_size as f32);
             bytes_read_total += bytes_read;
+            on_progress(bytes_read_total as f32 / packet_size as f32);
             if bytes_read_total >= packet_size as usize {
                 return Ok(data_buf);
             }

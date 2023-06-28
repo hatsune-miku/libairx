@@ -10,7 +10,7 @@ use std::time::Duration;
 use log::{info, warn};
 use crate::packet::data::magic_numbers::MagicNumbers;
 use crate::packet::data_packet::DataPacket;
-use crate::packet::protocol::data::{ReadDataWithRetry, SendDataWithRetry};
+use crate::packet::protocol::data::{SendDataWithRetry};
 use crate::packet::protocol::serialize::Serialize;
 use crate::service::context::data_service_context::DataServiceContext;
 use crate::service::handler::{file_coming_packet_handler, file_part_packet_handler, file_receive_response_packet_handler, text_packet_handler};
@@ -108,7 +108,9 @@ impl DataService {
         let mut tt = DataTransmission::from(stream);
 
         loop {
-            let raw_data = match tt.read_data_with_retry() {
+            let raw_data = match tt.read_data_progress_with_retry(|portion| {
+                info!("Received data {:.2}% from {}.", portion * 100.0, socket_addr);
+            }) {
                 Ok(s) => s,
                 Err(_) => break,
             };
