@@ -16,7 +16,7 @@ use crate::packet::protocol::serialize::Serialize;
 use crate::service::context::data_service_context::DataServiceContext;
 use crate::service::data_service::DataService;
 
-const BUFFER_SIZE: usize = 10240;
+const BUFFER_SIZE: usize = 64 * 1024;
 const TIMEOUT_MILLIS: u64 = 1000;
 const DATA_SESSION_RECONNECT_TRIES: u32 = 3;
 
