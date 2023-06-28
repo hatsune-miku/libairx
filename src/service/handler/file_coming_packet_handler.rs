@@ -1,5 +1,5 @@
 use std::net::SocketAddr;
-use log::warn;
+use log::{info, warn};
 use crate::packet::data::file_coming_packet::FileComingPacket;
 use crate::packet::data_packet::DataPacket;
 use crate::packet::protocol::serialize::Serialize;
@@ -10,8 +10,11 @@ pub fn handle(
     socket_addr: &SocketAddr,
     context: &DataServiceContext
 ) {
-    match FileComingPacket::deserialize(packet.data()) {
-        Ok(p) => (context.file_coming_callback())(&p, &socket_addr),
-        Err(e) => warn!("Failed to deserialize file coming packet ({:?}).", e),
+    let packet = match FileComingPacket::deserialize(packet.data()) {
+        Ok(p) => p,
+        Err(e) => return warn!("Failed to deserialize file coming packet ({:?}).", e),
     };
+
+    info!("Received file coming packet from {}.", socket_addr);
+    (context.file_coming_callback())(&packet, &socket_addr);
 }

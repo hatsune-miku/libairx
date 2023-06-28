@@ -280,7 +280,7 @@ pub extern "C" fn airx_send_text(
         }
     };
 
-    let _ = DataService::send_data_with_retry(
+    let _ = DataService::send_once_with_retry(
         &Peer::new(&host, config.data_service_listen_port, None),
         config.data_service_listen_port,
         MagicNumbers::Text,
@@ -322,7 +322,7 @@ pub extern "C" fn airx_broadcast_text(
                 std::thread::spawn(move || {
                     info!("lib: Sending text to (addr={}:{})",
                             thread_peer.host(), thread_config.data_service_listen_port);
-                    let _ = DataService::send_data_with_retry(
+                    let _ = DataService::send_once_with_retry(
                         &thread_peer,
                         thread_config.data_service_listen_port,
                         MagicNumbers::Text,
@@ -372,7 +372,7 @@ pub extern "C" fn airx_try_send_file(
     info!("lib: Sending file info {} to (addr={}:{})",
         file_path, host, config.data_service_listen_port);
     let packet = FileComingPacket::new(metadata.len(), file_path.clone());
-    let _ = DataService::send_data_with_retry(
+    let _ = DataService::send_once_with_retry(
         &Peer::new(&host, config.data_service_listen_port, None),
         config.data_service_listen_port,
         MagicNumbers::FileComing,
@@ -399,7 +399,7 @@ pub extern "C" fn airx_respond_to_file(
 
     let packet = FileReceiveResponsePacket::new(
         file_id, file_size, file_path, accept);
-    let _ = DataService::send_data_with_retry(
+    let _ = DataService::send_once_with_retry(
         &Peer::new(&host, config.data_service_listen_port, None),
         config.data_service_listen_port,
         MagicNumbers::FileReceiveResponse,

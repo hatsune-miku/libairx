@@ -1,35 +1,34 @@
-use crate::network::socket;
 use std::{io, usize};
+use std::io::{Read, Write};
 use std::mem::size_of;
+use std::net::TcpStream;
 use std::thread::sleep;
 use std::time::Duration;
 use log::warn;
 use crate::compatibility::unified_endian::UnifiedEndian;
 use crate::packet::protocol::data;
 
-const PACKET_TRY_TIMES: u64 = 5;
+const PACKET_TRY_TIMES: u64 = 3;
 const TCP_ACCEPT_TRY_WAIT_MILLISECONDS: u64 = 10;
 
-// A data package is:
-// 4 bytes: data length, plus
-// N bytes: data
-// 4+N bytes in total
-
-pub struct DataTransmission<'a> {
-    socket: &'a mut socket::Socket,
+pub struct DataTransmission {
+    stream: TcpStream,
 }
 
-impl<'a> DataTransmission<'a> {
-    pub fn from(socket: &'a mut socket::Socket) -> Self {
-        Self { socket }
+impl DataTransmission {
+    pub fn from(stream: TcpStream) -> Self {
+        Self { stream }
+    }
+    pub fn close(&mut self) -> Result<(), io::Error> {
+        self.stream.shutdown(std::net::Shutdown::Both)
     }
 }
 
 const SIZE_SIZE: usize = size_of::<u32>();
 
-impl data::SendDataWithRetry for DataTransmission<'_> {
+impl data::SendDataWithRetry for DataTransmission {
     // Try to send data for TCP_ACCEPT_TRY_TIMES times.
-    fn send_data_with_retry(&mut self, data: &Vec<u8>) -> Result<usize, io::Error> {
+    fn send_data_with_retry(&mut self, data: &Vec<u8>) -> Result<(), io::Error> {
         // Strings are already utf8 encoded.
         let data_len = data.len() as u32;
         let mut buf = vec![0u8; SIZE_SIZE + data_len as usize];
@@ -41,8 +40,8 @@ impl data::SendDataWithRetry for DataTransmission<'_> {
         let mut error: io::Error = io::Error::new(io::ErrorKind::Other, "Failed to send data.");
 
         while remaining_tries > 0 {
-            match self.socket.send_with_retry(&buf) {
-                Ok(size) => return Ok(size),
+            match self.stream.write_all(&buf) {
+                Ok(_) => return Ok(()),
                 Err(e) => {
                     error = e;
                     remaining_tries -= 1;
@@ -56,7 +55,7 @@ impl data::SendDataWithRetry for DataTransmission<'_> {
     }
 }
 
-impl data::ReadDataWithRetry for DataTransmission<'_> {
+impl data::ReadDataWithRetry for DataTransmission {
     // Try to read data for TCP_ACCEPT_TRY_TIMES times.
     fn read_data_with_retry(&mut self) -> Result<Vec<u8>, io::Error> {
         let mut size_buf: [u8; SIZE_SIZE] = [0; SIZE_SIZE];
@@ -65,18 +64,21 @@ impl data::ReadDataWithRetry for DataTransmission<'_> {
 
         while tries > 0 {
             match {
-                if let Err(e) = self.socket.read_exact(&mut size_buf) {
+                if let Err(e) = self.stream.read_exact(&mut size_buf) {
                     return Err(e);
                 }
                 let size = u32::from_bytes(size_buf);
                 let mut buf = vec![0u8; size as usize];
 
-                match self.socket.read_exact(&mut buf) {
+                match self.stream.read_exact(&mut buf) {
                     Ok(_) => Ok(buf),
                     Err(e) => Err(e),
                 }
             } {
-                Ok(buf) => return Ok(buf),
+                Ok(buf) => {
+                    let _ = self.stream.flush();
+                    return Ok(buf);
+                },
                 Err(e) => {
                     error = e;
                     tries -= 1;

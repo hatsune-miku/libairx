@@ -1,7 +1,6 @@
 use std::error::Error;
 use std::fmt;
 use std::fmt::{Debug, Display, Formatter};
-use log::{trace};
 use crate::compatibility::unified_endian::UnifiedEndian;
 use crate::packet::protocol::hash::Hash;
 use crate::packet::protocol::serialize::Serialize;
@@ -116,10 +115,6 @@ impl Serialize<Vec<u8>, FileComingPacketError> for FileComingPacket {
     }
 
     fn deserialize(data: &Vec<u8>) -> Result<Self, FileComingPacketError> {
-        trace!(
-            "FileComingPacket::deserialize, preliminary size check, BASE_PACKET_SIZE: {}",
-            BASE_PACKET_SIZE
-        );
         if data.len() < BASE_PACKET_SIZE {
             return Err(FileComingPacketError::CorruptedPacket);
         }

@@ -1,5 +1,5 @@
 use std::net::SocketAddr;
-use log::warn;
+use log::{info, warn};
 use crate::packet::data::text_packet::TextPacket;
 use crate::packet::data_packet::DataPacket;
 use crate::packet::protocol::serialize::Serialize;
@@ -10,8 +10,11 @@ pub fn handle(
     socket_addr: &SocketAddr,
     context: &DataServiceContext
 ) {
-    match TextPacket::deserialize(packet.data()) {
-        Ok(p) => (context.text_callback())(&p, &socket_addr),
-        Err(e) => warn!("Failed to deserialize text packet ({:?}).", e),
+    let packet = match TextPacket::deserialize(packet.data()) {
+        Ok(p) => p,
+        Err(e) => return warn!("Failed to deserialize text packet ({:?}).", e),
     };
+
+    info!("Received text packet from {}.", socket_addr);
+    (context.text_callback())(&packet, &socket_addr);
 }

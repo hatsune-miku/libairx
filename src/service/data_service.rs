@@ -1,5 +1,4 @@
 use crate::network::peer::Peer;
-use crate::network::socket::Socket;
 use crate::network::tcp_server::TcpServer;
 use crate::packet::data_transmission::DataTransmission;
 use std::io;
@@ -33,20 +32,20 @@ impl DataService {
         Self {}
     }
 
-    pub fn send_data_with_retry(
+    pub fn send_once_with_retry(
         peer: &Peer,
         port: u16,
         magic_number: MagicNumbers,
         data: &Vec<u8>,
         connect_timeout: Duration,
     ) -> Result<(), io::Error> {
-        let mut socket = Socket::connect(peer.host(), port, connect_timeout)?;
-        let mut dt = DataTransmission::from(&mut socket);
+        let stream = connect(peer, port, connect_timeout)?;
+        let mut dt = DataTransmission::from(stream);
 
         // Wrap with data packet.
         let data_packet = DataPacket::new(magic_number.value(), data);
         let result = dt.send_data_with_retry(&data_packet.serialize());
-        let _ = socket.close();
+        let _ = dt.close();
 
         match result {
             Ok(_) => Ok(()),
@@ -60,15 +59,16 @@ impl DataService {
         connect_timeout: Duration,
         session: &mut F,
     ) -> Result<(), io::Error> where F: FnMut(&mut DataTransmission) {
-        let mut socket = Socket::connect(peer.host(), port, connect_timeout)?;
-        let mut dt = DataTransmission::from(&mut socket);
+        let stream = connect(peer, port, connect_timeout)?;
+        let mut dt = DataTransmission::from(stream);
 
         session(&mut dt);
 
-        let _ = socket.close();
+        let _ = dt.close();
         Ok(())
     }
 
+    #[allow(unused)]
     fn dispatch_data_packet(
         tt: &mut DataTransmission,
         packet: &DataPacket,
@@ -79,7 +79,7 @@ impl DataService {
             Some(MagicNumbers::Text) => text_packet_handler::handle(packet, &socket_addr, context),
             Some(MagicNumbers::FileComing) => file_coming_packet_handler::handle(packet, &socket_addr, context),
             Some(MagicNumbers::FileReceiveResponse) => file_receive_response_packet_handler::handle(packet, &socket_addr, context),
-            Some(MagicNumbers::FilePart) => file_part_packet_handler::handle(tt, packet, &socket_addr, context),
+            Some(MagicNumbers::FilePart) => file_part_packet_handler::handle(packet, &socket_addr, context),
             Some(MagicNumbers::FilePartResponse) => (),
             _ => warn!("Unknown magic number.")
         }
@@ -93,16 +93,12 @@ impl DataService {
                 return;
             }
         };
-        let mut socket = Socket::from(stream);
-        let mut tt = DataTransmission::from(&mut socket);
+        let mut tt = DataTransmission::from(stream);
 
         loop {
             let raw_data = match tt.read_data_with_retry() {
                 Ok(s) => s,
-                Err(e) => {
-                    warn!("Failed to read data ({}).", e);
-                    break;
-                }
+                Err(_) => break,
             };
 
             let data_packet = match DataPacket::deserialize(&raw_data) {
@@ -116,6 +112,7 @@ impl DataService {
             info!("Received data packet from {}, magic_nubmer={}.", socket_addr, data_packet.magic_number());
             Self::dispatch_data_packet(&mut tt, &data_packet, socket_addr, &context);
         }
+
         info!("Session with {} is ended.", socket_addr);
     }
 
@@ -158,4 +155,13 @@ impl DataService {
 
         Ok(())
     }
+}
+
+fn connect(peer: &Peer, port: u16, timeout: Duration) -> Result<TcpStream, io::Error> {
+    let addr = format!("{}:{}", peer.host(), port);
+    let socket_addr = match addr.parse::<SocketAddr>() {
+        Ok(addr) => addr,
+        Err(e) => return Err(io::Error::new(io::ErrorKind::Other, e)),
+    };
+    TcpStream::connect_timeout(&socket_addr, timeout)
 }
