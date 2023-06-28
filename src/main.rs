@@ -35,7 +35,7 @@ fn main() {
     // t1
     let mut peers1 = HashSet::<Peer>::new();
     let mut file: File = File::create("D:\\output.txt").unwrap();
-    let mut file_size = 0;
+    let mut file_size_total = 0;
     let file_mutable = SharedMutable::new(file);
 
     peers1.insert(Peer::new(&String::from("127.0.0.1"), 8003, Some(&String::from("t2"))));
@@ -54,19 +54,22 @@ fn main() {
         };
 
         let file_part_callback1 = move |packet: &FilePartPacket, socket_addr: &SocketAddr| {
+            info!("Writing file part to disk...");
+            let offset = packet.offset();
+            let data = packet.data();
+            let data_len = data.len();
+
             if let Ok(mut f) = file_mutable.lock() {
                 if packet.offset() == 0 {
-                    f.set_len(file_size as u64).unwrap();
+                    f.set_len(file_size_total as u64).unwrap();
                 }
-                f.seek(std::io::SeekFrom::Start(packet.offset() as u64)).unwrap();
-                f.write_all(packet.data()).unwrap();
-                if packet.offset() + packet.data().len() as u32 == file_size {
+                f.seek(std::io::SeekFrom::Start(offset as u64)).unwrap();
+                f.write_all(data).unwrap();
+                if offset + data_len as u32 == file_size_total {
                     info!("File received.");
                     f.flush().unwrap();
                 }
             }
-
-            info!(">>>>> Received file part packet from {}.", socket_addr);
         };
 
         let context = DataServiceContext::new(
@@ -125,9 +128,9 @@ fn main() {
 
     let file_path = String::from("D:\\test.txt");
     let file = File::open(&file_path).unwrap();
-    file_size = file.metadata().unwrap().len() as u32;
+    file_size_total = file.metadata().unwrap().len() as u32;
 
-    let packet = FileComingPacket::new(file_size as u64, file_path.clone());
+    let packet = FileComingPacket::new(file_size_total as u64, file_path.clone());
     let _ = DataService::send_once_with_retry(
         &peers1.iter().next().unwrap(),
         8003,

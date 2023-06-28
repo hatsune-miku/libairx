@@ -11,12 +11,11 @@ use crate::packet::data::local::file_sending_packet::{FileSendingPacket, FileSen
 use crate::packet::data::magic_numbers::MagicNumbers;
 use crate::packet::data_packet::DataPacket;
 use crate::packet::data_transmission::DataTransmission;
-use crate::packet::protocol::data::{SendDataWithRetry};
 use crate::packet::protocol::serialize::Serialize;
 use crate::service::context::data_service_context::DataServiceContext;
 use crate::service::data_service::DataService;
 
-const BUFFER_SIZE: usize = 64 * 1024;
+const BUFFER_SIZE: usize = 16 * 1024 * 1024;
 const TIMEOUT_MILLIS: u64 = 1000;
 const DATA_SESSION_RECONNECT_TRIES: u32 = 3;
 
@@ -66,6 +65,7 @@ pub fn handle(
     let filename = packet.file_name();
 
     let peer = Peer::from(&ipv4addr, context.port(), None);
+    let mut buffer = vec![0u8; BUFFER_SIZE];
 
     // Connect to peer, start data transmission and close connection.
     let mut session = |dt: &mut DataTransmission| -> Result<(), io::Error> {
@@ -77,7 +77,6 @@ pub fn handle(
                 return Err(e);
             }
         };
-        let mut buffer = [0u8; BUFFER_SIZE];
         let mut offset = 0;
 
         loop {
@@ -105,7 +104,9 @@ pub fn handle(
             let data_packet = DataPacket::new(MagicNumbers::FilePart.value(), &file_part_packet.serialize());
 
             // Send.
-            if let Err(e) = dt.send_data_with_retry(&data_packet.serialize()) {
+            if let Err(e) = dt.send_data_progress_with_retry(&data_packet.serialize(), |bytes_written_total| {
+                info!("Progress {:.2}%", bytes_written_total as f32 / packet.file_size() as f32 * 100.0f32);
+            }) {
                 error!("Failed to send file part packet ({}).", e);
                 update_status(FileSendingStatus::Error);
                 return Err(e);
