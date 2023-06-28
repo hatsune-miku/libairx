@@ -15,7 +15,7 @@ use crate::packet::protocol::serialize::Serialize;
 use crate::service::context::data_service_context::DataServiceContext;
 use crate::service::data_service::DataService;
 
-const BUFFER_SIZE: usize = 1024;
+const BUFFER_SIZE: usize = 10240;
 const TIMEOUT_MILLIS: u64 = 1000;
 
 pub fn handle(
@@ -107,6 +107,7 @@ pub fn handle(
                 update_status(FileSendingStatus::Error);
                 return;
             }
+
             info!("Sent file part packet ({} bytes).", bytes_read);
 
             // Create local notification packet, update status and notify.

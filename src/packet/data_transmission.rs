@@ -75,10 +75,7 @@ impl data::ReadDataWithRetry for DataTransmission {
                     Err(e) => Err(e),
                 }
             } {
-                Ok(buf) => {
-                    let _ = self.stream.flush();
-                    return Ok(buf);
-                },
+                Ok(buf) => return Ok(buf),
                 Err(e) => {
                     error = e;
                     tries -= 1;
@@ -88,7 +85,6 @@ impl data::ReadDataWithRetry for DataTransmission {
                 }
             }
         }
-
         Err(error)
     }
 }
