@@ -1,5 +1,6 @@
 use std::collections::HashSet;
 use std::fs::File;
+use std::io::{Seek, Write};
 use std::net::SocketAddr;
 use std::sync::Arc;
 use std::thread::sleep;
@@ -16,6 +17,7 @@ use libairx::packet::data::text_packet::TextPacket;
 use libairx::packet::protocol::serialize::Serialize;
 use libairx::service::context::data_service_context::DataServiceContext;
 use libairx::service::data_service::DataService;
+use libairx::util::shared_mutable::SharedMutable;
 
 static mut INTERRUPT: bool = false;
 
@@ -32,6 +34,10 @@ fn main() {
 
     // t1
     let mut peers1 = HashSet::<Peer>::new();
+    let mut file: File = File::create("D:\\output.txt").unwrap();
+    let mut file_size = 0;
+    let file_mutable = SharedMutable::new(file);
+
     peers1.insert(Peer::new(&String::from("127.0.0.1"), 8003, Some(&String::from("t2"))));
 
     let data1 = std::thread::spawn(move || {
@@ -48,7 +54,18 @@ fn main() {
         };
 
         let file_part_callback1 = move |packet: &FilePartPacket, socket_addr: &SocketAddr| {
-            let packet = packet;
+            if let Ok(mut f) = file_mutable.lock() {
+                if packet.offset() == 0 {
+                    f.set_len(file_size as u64).unwrap();
+                }
+                f.seek(std::io::SeekFrom::Start(packet.offset() as u64)).unwrap();
+                f.write_all(packet.data()).unwrap();
+                if packet.offset() + packet.data().len() as u32 == file_size {
+                    info!("File received.");
+                    f.flush().unwrap();
+                }
+            }
+
             info!(">>>>> Received file part packet from {}.", socket_addr);
         };
 
@@ -108,9 +125,9 @@ fn main() {
 
     let file_path = String::from("D:\\test.txt");
     let file = File::open(&file_path).unwrap();
-    let file_size = file.metadata().unwrap().len();
+    file_size = file.metadata().unwrap().len() as u32;
 
-    let packet = FileComingPacket::new(file_size, file_path.clone());
+    let packet = FileComingPacket::new(file_size as u64, file_path.clone());
     let _ = DataService::send_once_with_retry(
         &peers1.iter().next().unwrap(),
         8003,

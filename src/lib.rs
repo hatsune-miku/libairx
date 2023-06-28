@@ -1,6 +1,8 @@
 extern crate core;
 
 use std::fs::File;
+use std::io::Read;
+use std::mem;
 use std::net::SocketAddr;
 use lib_util::string_from_lengthen_ptr;
 
@@ -189,7 +191,9 @@ pub extern "C" fn airx_data_service(
 
     let file_part_callback = move |file_part_packet: &FilePartPacket, _: &SocketAddr| {
         // TODO: SEVERE PERFORMANCE ISSUE
-        let data_cstr = file_part_packet.data().clone().as_ptr();
+        let data = file_part_packet.data().clone();
+        let data_cstr = data.as_ptr();
+        mem::forget(data);
         file_part_callback_c(
             file_part_packet.file_id(),
             file_part_packet.offset(),
