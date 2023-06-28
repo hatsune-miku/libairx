@@ -9,7 +9,7 @@ use crate::compatibility::unified_endian::UnifiedEndian;
 use crate::packet::protocol::data;
 
 const PACKET_TRY_TIMES: u64 = 10;
-const TCP_ACCEPT_TRY_WAIT_MILLISECONDS: u64 = 50;
+const TCP_ACCEPT_TRY_WAIT_MILLISECONDS: u64 = 500;
 
 pub struct DataTransmission {
     stream: TcpStream,
