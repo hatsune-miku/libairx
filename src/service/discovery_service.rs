@@ -279,11 +279,9 @@ impl DiscoveryService {
         let server_socket = Self::create_broadcast_socket(server_port)?;
         let mut size_buffer = [0u8; 4];
 
-        if let Err(_) = Self::broadcast_discovery_request(client_port, server_port, group_identifier) {
-            return Err(io::Error::new(
-                io::ErrorKind::Other,
-                "Failed to broadcast discovery request.",
-            ));
+        // Broadcast discovery request twice to ensure that we are discovered.
+        for _ in 0..2 {
+            let _ = Self::broadcast_discovery_request(client_port, server_port, group_identifier);
         }
 
         info!("Discovery service online and ready for connections.");
@@ -300,7 +298,7 @@ impl DiscoveryService {
                 }
                 Err(e) => {
                     error!("Failed to receive packet size ({})", e);
-                    break;
+                    continue;
                 }
             };
 
@@ -332,7 +330,7 @@ impl DiscoveryService {
                 }
                 Err(e) => {
                     error!("Failed to receive packet ({})", e);
-                    break;
+                    continue;
                 }
             }
         }
