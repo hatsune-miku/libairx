@@ -59,14 +59,25 @@ impl DataService {
         port: u16,
         connect_timeout: Duration,
         session: &mut F,
-    ) -> Result<(), io::Error> where F: FnMut(&mut DataTransmission) {
-        let stream = connect(peer, port, connect_timeout)?;
-        let mut dt = DataTransmission::from(stream);
+        reconnect_try_count: u32,
+    ) -> Result<(), io::Error> where F: FnMut(&mut DataTransmission) -> Result<(), io::Error> {
+        let mut tries = 0;
+        while tries < reconnect_try_count {
+            let stream = connect(peer, port, connect_timeout)?;
+            let mut dt = DataTransmission::from(stream);
 
-        session(&mut dt);
-
-        let _ = dt.close();
-        Ok(())
+            match session(&mut dt) {
+                Ok(_) => {
+                    let _ = dt.close();
+                    return Ok(());
+                }
+                Err(e) => {
+                    warn!("Data session error: {:?}. Retrying...", e);
+                    tries += 1;
+                }
+            }
+        }
+        Err(io::Error::new(io::ErrorKind::Other, "Failed to establish data session."))
     }
 
     #[allow(unused)]

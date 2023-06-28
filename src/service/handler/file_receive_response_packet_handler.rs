@@ -1,4 +1,5 @@
 use std::fs::File;
+use std::io;
 use std::io::{Read};
 use std::net::SocketAddr;
 use std::time::Duration;
@@ -17,6 +18,7 @@ use crate::service::data_service::DataService;
 
 const BUFFER_SIZE: usize = 10240;
 const TIMEOUT_MILLIS: u64 = 1000;
+const DATA_SESSION_RECONNECT_TRIES: u32 = 3;
 
 pub fn handle(
     packet: &DataPacket,
@@ -62,21 +64,22 @@ pub fn handle(
     update_status(FileSendingStatus::Accepted);
 
     let filename = packet.file_name();
-    let mut file = match File::open(filename) {
-        Ok(f) => f,
-        Err(e) => {
-            warn!("Failed to open file ({}).", e);
-            update_status(FileSendingStatus::Error);
-            return;
-        }
-    };
 
-    let mut buffer = [0u8; BUFFER_SIZE];
-    let mut offset = 0;
     let peer = Peer::from(&ipv4addr, context.port(), None);
 
     // Connect to peer, start data transmission and close connection.
-    let mut session = |dt: &mut DataTransmission| {
+    let mut session = |dt: &mut DataTransmission| -> Result<(), io::Error> {
+        let mut file = match File::open(filename) {
+            Ok(f) => f,
+            Err(e) => {
+                warn!("Failed to open file ({}).", e);
+                update_status(FileSendingStatus::Error);
+                return Err(e);
+            }
+        };
+        let mut buffer = [0u8; BUFFER_SIZE];
+        let mut offset = 0;
+
         loop {
             // Read a chunk of data from file.
             let bytes_read = match file.read(&mut buffer) {
@@ -84,7 +87,7 @@ pub fn handle(
                 Err(e) => {
                     warn!("Failed to read file ({}).", e);
                     update_status(FileSendingStatus::Error);
-                    return;
+                    return Err(e);
                 }
             };
 
@@ -105,7 +108,7 @@ pub fn handle(
             if let Err(e) = dt.send_data_with_retry(&data_packet.serialize()) {
                 error!("Failed to send file part packet ({}).", e);
                 update_status(FileSendingStatus::Error);
-                return;
+                return Err(e);
             }
 
             info!("Sent file part packet ({} bytes).", bytes_read);
@@ -120,9 +123,15 @@ pub fn handle(
             (context.file_sending_callback())(&local_packet, socket_addr);
             offset += bytes_read as u32;
         }
+        Ok(())
     };
 
-    if let Err(e) = DataService::data_session(&peer, context.port(), Duration::from_millis(TIMEOUT_MILLIS), &mut session) {
+    if let Err(e) = DataService::data_session(
+        &peer, context.port(),
+        Duration::from_millis(TIMEOUT_MILLIS),
+        &mut session,
+        DATA_SESSION_RECONNECT_TRIES
+    ) {
         error!("Failed to send file part packet ({}).", e);
         update_status(FileSendingStatus::Error);
         return;
