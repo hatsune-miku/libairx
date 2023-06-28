@@ -135,8 +135,8 @@ impl DiscoveryService {
         group_identifier: u32,
     ) -> Result<(), Box<dyn std::error::Error>> {
         let sender_address = packet.address();
-        let ipv4_address = Ipv4Addr::from(sender_address);
-        if local_addresses.contains(&ipv4_address) {
+        let sender_address_ipv4 = Ipv4Addr::from(sender_address);
+        if local_addresses.contains(&sender_address_ipv4) {
             return Err("Received packet from self".into());
         }
 
@@ -172,12 +172,12 @@ impl DiscoveryService {
                 let size = serialized.len() as u32;
                 let _ = server_socket.send_to(
                     &size.to_bytes(),
-                    SocketAddrV4::new(local_addr_ipv4, packet.server_port() as u16),
+                    SocketAddrV4::new(sender_address_ipv4, packet.server_port() as u16),
                 );
 
                 match server_socket.send_to(
                     serialized.as_slice(),
-                    SocketAddrV4::new(local_addr_ipv4, packet.server_port() as u16),
+                    SocketAddrV4::new(sender_address_ipv4, packet.server_port() as u16),
                 ) {
                     Ok(_) => {
                         info!("Successfully response packet to {}", sender_address);
@@ -193,7 +193,7 @@ impl DiscoveryService {
         info!("Adding peer {} to peer set.", sender_address);
         if let Ok(mut locked) = peers.lock() {
             locked.insert(Peer::from(
-                &ipv4_address,
+                &sender_address_ipv4,
                 packet.server_port() as u16,
                 Some(&packet.host_name().to_string())
             ));
