@@ -192,9 +192,6 @@ pub extern "C" fn airx_data_service(
         let data = file_part_packet.data().clone();
         let data_cstr = data.as_ptr();
 
-        // TODO: LEAK
-        mem::forget(data);
-
         file_part_callback_c(
             file_part_packet.file_id(),
             file_part_packet.offset(),
