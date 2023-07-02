@@ -1,6 +1,6 @@
 use std::fs::File;
 use std::io;
-use std::io::{Read};
+use std::io::{Read, Seek};
 use std::net::SocketAddr;
 use std::time::Duration;
 use log::{error, info, warn};
@@ -18,6 +18,10 @@ use crate::service::data_service::DataService;
 const BUFFER_SIZE: usize = 256 * 1024;
 const TIMEOUT_MILLIS: u64 = 1000;
 const DATA_SESSION_RECONNECT_TRIES: u32 = 3;
+
+struct TransmissionState {
+    bytes_sent_total: u64,
+}
 
 pub fn handle(
     packet: &DataPacket,
@@ -68,8 +72,8 @@ pub fn handle(
 
     // Connect to peer, start data transmission and close connection.
     let mut buffer = vec![0u8; BUFFER_SIZE];
-    let mut bytes_sent_total = 0;
-    let mut session = |dt: &mut DataTransmission| -> Result<(), io::Error> {
+    let mut session = |dt: &mut DataTransmission,
+                       state: &mut TransmissionState| -> Result<(), io::Error> {
         let mut file = match File::open(filename) {
             Ok(f) => f,
             Err(e) => {
@@ -78,7 +82,28 @@ pub fn handle(
                 return Err(e);
             }
         };
-        let mut offset = 0;
+        let mut offset = state.bytes_sent_total;
+        match file.seek(io::SeekFrom::Start(offset)) {
+            Ok(n) => {
+                if n != offset {
+                    warn!("Failed to seek file ({}).", io::Error::new(
+                        io::ErrorKind::Other,
+                        "Failed to seek file.",
+                    ));
+                    update_status(FileSendingStatus::Error);
+                    return Err(io::Error::new(
+                        io::ErrorKind::Other,
+                        "Failed to seek file.",
+                    ));
+                }
+                info!("Seeked file to {}.", offset);
+            }
+            Err(e) => {
+                warn!("Failed to seek file ({}).", e);
+                update_status(FileSendingStatus::Error);
+                return Err(e);
+            }
+        }
 
         loop {
             // Read a chunk of data from file.
@@ -98,7 +123,7 @@ pub fn handle(
 
             // Create file part packet.
             let file_part_packet = FilePartPacket::new(
-                packet.file_id(), offset, bytes_read as u32, buffer[..bytes_read].to_vec(),
+                packet.file_id(), offset, bytes_read as u64, buffer[..bytes_read].to_vec(),
             );
 
             // Wrap to generic data packet.
@@ -106,8 +131,8 @@ pub fn handle(
 
             // Send.
             if let Err(e) = dt.send_data_progress_with_retry(&data_packet.serialize(), |bytes_written_total| {
-                bytes_sent_total += bytes_written_total;
-                info!("Progress {:.2}%", bytes_sent_total as f32 / packet.file_size() as f32 * 100.0f32);
+                state.bytes_sent_total += bytes_written_total;
+                info!("Progress {:.2}%", state.bytes_sent_total as f32 / packet.file_size() as f32 * 100.0f32);
             }) {
                 error!("Failed to send file part packet ({}).", e);
                 update_status(FileSendingStatus::Error);
@@ -124,16 +149,21 @@ pub fn handle(
                 FileSendingStatus::InProgress,
             );
             (context.file_sending_callback())(&local_packet, socket_addr);
-            offset += bytes_read as u32;
+            offset += bytes_read as u64;
         }
         Ok(())
+    };
+
+    let state = TransmissionState {
+        bytes_sent_total: 0,
     };
 
     if let Err(e) = DataService::data_session(
         &peer, context.port(),
         Duration::from_millis(TIMEOUT_MILLIS),
         &mut session,
-        DATA_SESSION_RECONNECT_TRIES
+        DATA_SESSION_RECONNECT_TRIES,
+        state,
     ) {
         error!("Failed to send file part packet ({}).", e);
         update_status(FileSendingStatus::Error);

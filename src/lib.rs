@@ -1,7 +1,6 @@
 extern crate core;
 
 use std::fs::File;
-use std::mem;
 use std::net::SocketAddr;
 use lib_util::string_from_lengthen_ptr;
 
@@ -143,8 +142,8 @@ pub extern "C" fn airx_data_service(
     ),
     file_part_callback_c: extern "C" fn(
         u8, /* file_id */
-        u32, /* offset */
-        u32, /* length */
+        u64, /* offset */
+        u64, /* length */
         *const u8, /* data */
     ),
     should_interrupt: extern "C" fn() -> bool,

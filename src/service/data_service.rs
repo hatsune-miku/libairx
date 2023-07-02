@@ -23,9 +23,7 @@ const TCP_ACCEPT_WAIT_MILLIS: u64 = 10;
 const TCP_ACCEPT_TIMEOUT_COUNT: u64 = 100;
 
 #[allow(dead_code)]
-pub struct DataService {
-
-}
+pub struct DataService {}
 
 #[allow(dead_code)]
 impl DataService {
@@ -54,19 +52,20 @@ impl DataService {
         }
     }
 
-    pub fn data_session<F>(
+    pub fn data_session<State, F>(
         peer: &Peer,
         port: u16,
         connect_timeout: Duration,
         session: &mut F,
         reconnect_try_count: u32,
-    ) -> Result<(), io::Error> where F: FnMut(&mut DataTransmission) -> Result<(), io::Error> {
+        mut state: State,
+    ) -> Result<(), io::Error> where F: FnMut(&mut DataTransmission, &mut State) -> Result<(), io::Error> {
         let mut tries = 0;
         while tries < reconnect_try_count {
             let stream = connect(peer, port, connect_timeout)?;
             let mut dt = DataTransmission::from(stream);
 
-            match session(&mut dt) {
+            match session(&mut dt, &mut state) {
                 Ok(_) => {
                     let _ = dt.close();
                     return Ok(());
@@ -85,7 +84,7 @@ impl DataService {
         tt: &mut DataTransmission,
         packet: &DataPacket,
         socket_addr: SocketAddr,
-        context: &DataServiceContext
+        context: &DataServiceContext,
     ) {
         match MagicNumbers::from(packet.magic_number()) {
             Some(MagicNumbers::Text) => text_packet_handler::handle(packet, &socket_addr, context),
