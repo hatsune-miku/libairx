@@ -36,12 +36,21 @@ pub mod extension;
 
 #[export_name = "airx_version"]
 pub extern "C" fn airx_version() -> i32 {
-    20230628
+    20230710
 }
 
 #[export_name = "airx_compatibility_number"]
 pub extern "C" fn airx_compatibility_number() -> i32 {
     2
+}
+
+#[export_name = "airx_version_string"]
+pub extern "C" fn airx_version_string(buffer: *mut c_char) {
+    let version = "牛逼版";
+    let version = version.as_bytes();
+    unsafe {
+        copy(version.as_ptr(), buffer as *mut u8, version.len());
+    }
 }
 
 #[export_name = "airx_init"]

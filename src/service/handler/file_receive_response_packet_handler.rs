@@ -67,11 +67,14 @@ pub fn handle(
     update_status(FileSendingStatus::Accepted);
 
     let filename = packet.file_name();
-
     let peer = Peer::from(&ipv4addr, context.port(), None);
 
     // Connect to peer, start data transmission and close connection.
     let mut buffer = vec![0u8; BUFFER_SIZE];
+
+    // Log on every 10th iteration.
+    let mut log_counter = 0;
+
     let mut session = |dt: &mut DataTransmission,
                        state: &mut TransmissionState| -> Result<(), io::Error> {
         let mut file = match File::open(filename) {
@@ -132,23 +135,27 @@ pub fn handle(
             // Send.
             if let Err(e) = dt.send_data_progress_with_retry(&data_packet.serialize(), |bytes_written_total| {
                 state.bytes_sent_total += bytes_written_total;
-                info!("Progress {:.2}%", state.bytes_sent_total as f32 / packet.file_size() as f32 * 100.0f32);
             }) {
                 error!("Failed to send file part packet ({}).", e);
                 update_status(FileSendingStatus::Error);
                 return Err(e);
             }
 
-            info!("Sent file part packet ({} bytes).", bytes_read);
+            // Report on every 10th packet.
+            if log_counter >= 10 {
+                log_counter = 0;
+                info!("File part status: (fid={}, progress={}/{}).", packet.file_id(), offset, packet.file_size());
 
-            // Create local notification packet, update status and notify.
-            let local_packet = FileSendingPacket::new(
-                packet.file_id(),
-                offset as u64,
-                packet.file_size(),
-                FileSendingStatus::InProgress,
-            );
-            (context.file_sending_callback())(&local_packet, socket_addr);
+                // Create local notification packet, update status and notify.
+                let local_packet = FileSendingPacket::new(
+                    packet.file_id(),
+                    offset,
+                    packet.file_size(),
+                    FileSendingStatus::InProgress,
+                );
+                (context.file_sending_callback())(&local_packet, socket_addr);
+            }
+
             offset += bytes_read as u64;
         }
         Ok(())

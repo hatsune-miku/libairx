@@ -1,5 +1,5 @@
 use std::net::SocketAddr;
-use log::{info, warn};
+use log::{trace, warn};
 use crate::packet::data::file_part_packet::FilePartPacket;
 use crate::packet::data_packet::DataPacket;
 use crate::packet::protocol::serialize::Serialize;
@@ -16,6 +16,6 @@ pub fn handle(
             "Failed to deserialize file part packet ({:?}).", e),
     };
 
-    info!("Received file part packet from {} (offset={}, length={}).", socket_addr, packet.offset(), packet.length());
+    trace!("Received file part packet from {} (offset={}, length={}).", socket_addr, packet.offset(), packet.length());
     (context.file_part_callback())(&packet, socket_addr);
 }

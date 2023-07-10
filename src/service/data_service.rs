@@ -7,7 +7,7 @@ use std::net::{SocketAddr, TcpStream};
 use std::sync::Arc;
 use std::thread::sleep;
 use std::time::Duration;
-use log::{info, warn};
+use log::{info, trace, warn};
 use crate::packet::data::magic_numbers::MagicNumbers;
 use crate::packet::data_packet::DataPacket;
 use crate::packet::protocol::data::{SendDataWithRetry};
@@ -108,7 +108,7 @@ impl DataService {
 
         loop {
             let raw_data = match tt.read_data_progress_with_retry(|portion| {
-                info!("Received data {:.2}% from {}.", portion * 100.0, socket_addr);
+                trace!("Received data {:.2}% from {}.", portion * 100.0, socket_addr);
             }) {
                 Ok(s) => s,
                 Err(_) => break,
@@ -122,7 +122,7 @@ impl DataService {
                 }
             };
 
-            info!("Received data packet from {}, magic_nubmer={}.", socket_addr, data_packet.magic_number());
+            trace!("Received data packet from {}, magic_nubmer={}.", socket_addr, data_packet.magic_number());
             Self::dispatch_data_packet(&mut tt, &data_packet, socket_addr, &context);
         }
 
