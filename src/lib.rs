@@ -45,12 +45,15 @@ pub extern "C" fn airx_compatibility_number() -> i32 {
 }
 
 #[export_name = "airx_version_string"]
-pub extern "C" fn airx_version_string(buffer: *mut c_char) {
+pub extern "C" fn airx_version_string(buffer: *mut c_char) -> u64 {
     let version = "牛逼版";
     let version = version.as_bytes();
+    let len = version.len();
     unsafe {
-        copy(version.as_ptr(), buffer as *mut u8, version.len());
+        copy(version.as_ptr(), buffer as *mut u8, len);
+        buffer.offset(len as isize).write(0);
     }
+    len as u64
 }
 
 #[export_name = "airx_init"]
