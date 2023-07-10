@@ -89,15 +89,13 @@ pub fn handle(
         match file.seek(io::SeekFrom::Start(offset)) {
             Ok(n) => {
                 if n != offset {
-                    warn!("Failed to seek file ({}).", io::Error::new(
+                    let error = io::Error::new(
                         io::ErrorKind::Other,
-                        "Failed to seek file.",
-                    ));
+                        "Wrong seek position.",
+                    );
+                    warn!("Failed to seek file ({}).", error);
                     update_status(FileSendingStatus::Error);
-                    return Err(io::Error::new(
-                        io::ErrorKind::Other,
-                        "Failed to seek file.",
-                    ));
+                    return Err(error);
                 }
                 info!("Seeked file to {}.", offset);
             }

@@ -1,46 +1,40 @@
 ## libairx - AirX Core Library
 
+Provides UTF-8 encoded text and binary data transmission over LAN for AirX.
+
 [![Release Build & Test](https://github.com/hatsune-miku/libairx/actions/workflows/rust.yml/badge.svg)](https://github.com/hatsune-miku/libairx/actions/workflows/rust.yml)
 
 - Fast & Lightweight
     - Written in pure Rust.
-    - Plaintext transmission [1].
-- Reliable
+    - Plaintext transmission.
     - Low-cost discovery service.
-    - Hash-verified network packets.
-    - TCP-based text transmission.
-
-[1] It's possible to implement some end-to-end encryption on top of this library to achieve
-better security.
+- Reliable
+    - TCP-based data transmission.
+    - Hash-verified data packets.
 
 [API Documentation](https://github.com/hatsune-miku/libairx/wiki)
 
 ---
 
-### Finished
+### Features
 
-- LAN Discovery
-- Text sync over LAN (TCP)
-
-### WIP
-
-- Text sync over Internet (TCP)
-- Image sync over LAN
-- File sharing over LAN
-- File sharing over Internet (Upload & share link)
+- LAN Discovery with group ID
+- Share text over LAN
+- Share files of any size over LAN
+- Cross-platform support
 
 ### Usage
-
-- Build
-
-```shell
-cargo build --release --lib
-```
 
 - Test
 
 ```shell
 cargo test
+```
+
+- Build
+
+```shell
+cargo build --release --lib
 ```
 
 ### Credits
