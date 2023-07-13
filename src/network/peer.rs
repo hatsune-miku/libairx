@@ -2,7 +2,6 @@ use std::hash::Hash;
 use std::net::{Ipv4Addr};
 
 #[derive(Eq, Clone)]
-#[allow(dead_code)]
 pub struct Peer {
     host: String,
     port: u16,
@@ -36,7 +35,6 @@ impl ToString for Peer {
     }
 }
 
-#[allow(dead_code)]
 impl Peer {
     pub fn from(socket_addr: &Ipv4Addr, port: u16, host_name: Option<&String>) -> Self {
         Self {

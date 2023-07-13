@@ -12,8 +12,8 @@ use crate::packet::data::magic_numbers::MagicNumbers;
 use crate::packet::data_packet::DataPacket;
 use crate::packet::data_transmission::DataTransmit;
 use crate::packet::protocol::serialize::Serialize;
-use crate::service::context::data_service_context::DataServiceContext;
 use crate::service::data_service::DataService;
+use crate::service::handler::context::{ConnectionControl, HandlerContext};
 
 const BUFFER_SIZE: usize = 8 * 1024 * 1024;
 const TIMEOUT_MILLIS: u64 = 1000;
@@ -23,51 +23,49 @@ struct TransmissionState {
     bytes_sent_total: u64,
 }
 
-pub fn handle(
-    packet: &DataPacket,
-    socket_addr: &SocketAddr,
-    context: &DataServiceContext,
-) {
-    let packet = match FileReceiveResponsePacket::deserialize(packet.data()) {
+pub fn handle(context: HandlerContext) -> ConnectionControl {
+    let packet = match FileReceiveResponsePacket::deserialize(context.packet().data()) {
         Ok(p) => p,
-        Err(e) => return warn!(
-            "Failed to deserialize file receive response packet ({:?}).", e),
+        Err(e) => {
+            warn!("Failed to deserialize file receive response packet ({:?}).", e);
+            return ConnectionControl::Default;
+        },
     };
 
-    info!("Received file receive response packet from {}.", socket_addr);
+    info!("Received file receive response packet from {}.", context.socket_addr());
 
     let update_status = |status: FileSendingStatus| {
-        (context.file_sending_callback())(&FileSendingPacket::new(
+        (context.data_service_context().file_sending_callback())(&FileSendingPacket::new(
             packet.file_id(),
             0,
             packet.file_size(),
             status,
-        ), socket_addr);
+        ), &context.socket_addr());
     };
 
     // Update status!
     update_status(FileSendingStatus::Requested);
 
-    let ipv4addr = match socket_addr {
-        SocketAddr::V4(addr) => addr.ip(),
+    let ipv4addr = match context.socket_addr() {
+        SocketAddr::V4(addr) => addr.ip().clone(),
         SocketAddr::V6(_) => {
             warn!("Received file receive response packet from IPv6 address.");
             update_status(FileSendingStatus::Error);
-            return;
+            return ConnectionControl::Default;
         }
     };
 
     if !packet.accepted() {
         info!("File receive request rejected by peer.");
         update_status(FileSendingStatus::Rejected);
-        return;
+        return ConnectionControl::Default;
     }
 
     info!("File receive request accepted by peer.");
     update_status(FileSendingStatus::Accepted);
 
     let filename = packet.file_name();
-    let peer = Peer::from(&ipv4addr, context.port(), None);
+    let peer = Peer::from(&ipv4addr, context.data_service_context().port(), None);
 
     // Connect to peer, start data transmission and close connection.
     let mut buffer = vec![0u8; BUFFER_SIZE];
@@ -151,7 +149,7 @@ pub fn handle(
                     packet.file_size(),
                     FileSendingStatus::InProgress,
                 );
-                (context.file_sending_callback())(&local_packet, socket_addr);
+                (context.data_service_context().file_sending_callback())(&local_packet, &context.socket_addr());
             }
 
             offset += bytes_read as u64;
@@ -164,7 +162,7 @@ pub fn handle(
     };
 
     if let Err(e) = DataService::data_session(
-        &peer, context.port(),
+        &peer, context.data_service_context().port(),
         Duration::from_millis(TIMEOUT_MILLIS),
         &mut session,
         DATA_SESSION_RECONNECT_TRIES,
@@ -172,8 +170,9 @@ pub fn handle(
     ) {
         error!("Failed to send file part packet ({}).", e);
         update_status(FileSendingStatus::Error);
-        return;
+        return ConnectionControl::Default;
     }
 
     update_status(FileSendingStatus::Completed);
+    ConnectionControl::Default
 }

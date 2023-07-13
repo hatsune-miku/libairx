@@ -1,11 +1,11 @@
 use crate::network::peer::Peer;
 use crate::service::ShouldInterruptFunctionType;
-use crate::util::shared_mutable::SharedMutable;
 use network_interface::{Addr, NetworkInterface, NetworkInterfaceConfig};
 use std::collections::HashSet;
 use std::io;
 use std::io::ErrorKind::{TimedOut, WouldBlock};
 use std::net::{IpAddr, Ipv4Addr, SocketAddrV4, UdpSocket};
+use std::sync::{Arc, Mutex};
 use std::time::Duration;
 use log::{error, info};
 use protobuf::Message;
@@ -16,7 +16,7 @@ use crate::extension::ip_to_u32::ToU32;
 
 const DISCOVERY_TIMEOUT_MILLIS: u64 = 1000;
 
-pub type PeerCollectionType = SharedMutable<HashSet<Peer>>;
+pub type PeerCollectionType = Arc<Mutex<HashSet<Peer>>>;
 
 trait Broadcast {
     fn to_broadcast_addr(&self) -> Ipv4Addr;
@@ -95,7 +95,7 @@ pub struct DiscoveryService {
 impl DiscoveryService {
     pub fn new() -> Self {
         Self {
-            peer_set_ptr: SharedMutable::new(HashSet::new()),
+            peer_set_ptr: Arc::new(Mutex::new(HashSet::new())),
         }
     }
 
@@ -113,14 +113,6 @@ impl DiscoveryService {
         }
     }
 
-    // 说时迟那时快，只见一道金光从天而降，正是那金刚不坏神功的绝学——金刚伏魔圈！
-    // 然而，这一招却是不中不出，只见那金光一闪，竟然被那人一掌击开，露出了那人的真身。
-    // 原来那人身穿一件青色长袍，腰间束着一条白色长带，脸上戴着一张白布口罩，只露出一双眼睛，眼睛中闪烁着一丝寒光。
-    // 那人身材高大，身形甚是魁梧，但却是一副骨瘦如柴的模样，只是那双眼睛却是显得格外的亮，格外的炯炯有神。
-    // 那人一掌击开了金光，却是不见了踪影，只见那人身形一闪，已经来到了那人的身前，右掌猛地拍出，正是那金刚伏魔圈。
-    // 那人只觉得一股强大的力量袭来，只得连忙抬起手来，双掌相交，只听得“咔嚓”一声，那人的右手已经被那人的掌力震断了。
-    // 那人只觉得一股强大的力量袭来，只得连忙抬起手来，双掌相交，只听得“咔嚓”一声，那人的右手已经被那人的掌力震断了。
-    // 以上是Copilot的大作，我只开了个说时迟的头，无敌
     pub fn peers(&self) -> PeerCollectionType {
         self.peer_set_ptr.clone()
     }
@@ -298,6 +290,9 @@ impl DiscoveryService {
                 }
                 Err(e) => {
                     error!("Failed to receive packet size ({})", e);
+
+                    // Broadcast another one to ensure that we are discovered.
+                    let _ = Self::broadcast_discovery_request(client_port, server_port, group_identifier);
                     continue;
                 }
             };

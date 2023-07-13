@@ -1,21 +1,18 @@
-use std::net::SocketAddr;
 use log::{trace, warn};
 use crate::packet::data::file_part_packet::FilePartPacket;
-use crate::packet::data_packet::DataPacket;
 use crate::packet::protocol::serialize::Serialize;
-use crate::service::context::data_service_context::DataServiceContext;
+use crate::service::handler::context::{ConnectionControl, HandlerContext};
 
-pub fn handle(
-    packet: &DataPacket,
-    socket_addr: &SocketAddr,
-    context: &DataServiceContext
-) {
-    let packet = match FilePartPacket::deserialize(packet.data()) {
+pub fn handle(context: HandlerContext) -> ConnectionControl {
+    let packet = match FilePartPacket::deserialize(context.packet().data()) {
         Ok(p) => p,
-        Err(e) => return warn!(
-            "Failed to deserialize file part packet ({:?}).", e),
+        Err(e) => {
+            warn!("Failed to deserialize file part packet ({:?}).", e);
+            return ConnectionControl::Default;
+        },
     };
 
-    trace!("Received file part packet from {} (offset={}, length={}).", socket_addr, packet.offset(), packet.length());
-    (context.file_part_callback())(&packet, socket_addr);
+    trace!("Received file part packet from {} (offset={}, length={}).", context.socket_addr(), packet.offset(), packet.length());
+    (context.data_service_context().file_part_callback())(&packet, &context.socket_addr());
+    ConnectionControl::Default
 }

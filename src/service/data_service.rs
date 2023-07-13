@@ -12,7 +12,8 @@ use crate::packet::data::magic_numbers::MagicNumbers;
 use crate::packet::data_packet::DataPacket;
 use crate::packet::protocol::serialize::Serialize;
 use crate::service::context::data_service_context::DataServiceContext;
-use crate::service::handler::{file_coming_packet_handler, file_part_packet_handler, file_receive_response_packet_handler, text_packet_handler};
+use crate::service::handler::{file_coming_packet_handler, file_part_packet_handler, file_receive_response_packet_handler, text_packet_handler, file_part_response_packet_handler};
+use crate::service::handler::context::{HandlerContext, ConnectionControl};
 use crate::service::ShouldInterruptFunctionType;
 
 pub type OnPacketReceivedFunctionType<T> = Arc<Box<dyn Fn(&T, &SocketAddr) + Send + Sync>>;
@@ -21,10 +22,8 @@ pub type OnPacketReceivedFunctionType<T> = Arc<Box<dyn Fn(&T, &SocketAddr) + Sen
 const TCP_ACCEPT_WAIT_MILLIS: u64 = 10;
 const TCP_ACCEPT_TIMEOUT_COUNT: u64 = 100;
 
-#[allow(dead_code)]
 pub struct DataService {}
 
-#[allow(dead_code)]
 impl DataService {
     pub fn new() -> Self {
         Self {}
@@ -78,20 +77,23 @@ impl DataService {
         Err(io::Error::new(io::ErrorKind::Other, "Failed to establish data session."))
     }
 
-    #[allow(unused)]
     fn dispatch_data_packet(
         tt: &mut DataTransmit,
         packet: &DataPacket,
         socket_addr: SocketAddr,
-        context: &DataServiceContext,
-    ) {
+        data_service_context: &DataServiceContext,
+    ) -> ConnectionControl {
+        let context = HandlerContext::new(tt, packet, socket_addr, data_service_context);
         match MagicNumbers::from(packet.magic_number()) {
-            Some(MagicNumbers::Text) => text_packet_handler::handle(packet, &socket_addr, context),
-            Some(MagicNumbers::FileComing) => file_coming_packet_handler::handle(packet, &socket_addr, context),
-            Some(MagicNumbers::FileReceiveResponse) => file_receive_response_packet_handler::handle(packet, &socket_addr, context),
-            Some(MagicNumbers::FilePart) => file_part_packet_handler::handle(packet, &socket_addr, context),
-            Some(MagicNumbers::FilePartResponse) => (),
-            _ => warn!("Unknown magic number.")
+            Some(MagicNumbers::Text) => text_packet_handler::handle(context),
+            Some(MagicNumbers::FileComing) => file_coming_packet_handler::handle(context),
+            Some(MagicNumbers::FileReceiveResponse) => file_receive_response_packet_handler::handle(context),
+            Some(MagicNumbers::FilePart) => file_part_packet_handler::handle(context),
+            Some(MagicNumbers::FilePartResponse) => file_part_response_packet_handler::handle(context),
+            _ => {
+                warn!("Unknown magic number.");
+                ConnectionControl::CloseConnection
+            }
         }
     }
 
@@ -122,13 +124,15 @@ impl DataService {
             };
 
             trace!("Received data packet from {}, magic_nubmer={}.", socket_addr, data_packet.magic_number());
-            Self::dispatch_data_packet(&mut tt, &data_packet, socket_addr, &context);
+            match Self::dispatch_data_packet(&mut tt, &data_packet, socket_addr, &context) {
+                ConnectionControl::CloseConnection => break,
+                ConnectionControl::Default => (),
+            }
         }
 
         info!("Session with {} is ended.", socket_addr);
     }
 
-    #[allow(unused_assignments)]
     pub fn run(context: DataServiceContext, should_interrupt: ShouldInterruptFunctionType) -> Result<(), io::Error> {
         let server_socket = TcpServer::create_and_listen(&context.host(), context.port())?;
         let mut timeout_counter = 0;

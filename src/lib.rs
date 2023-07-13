@@ -110,7 +110,6 @@ pub extern "C" fn airx_lan_discovery_service(
     let config = airx.config();
 
     let service_disc = airx.discovery_service();
-    let service_disc = service_disc.lock().unwrap();
     let peers_ptr = service_disc.peers();
     drop(service_disc);
 
@@ -248,23 +247,21 @@ pub extern "C" fn airx_get_peers(
     let airx = unsafe { &mut *airx_ptr };
     let service_disc = airx.discovery_service();
 
-    if let Ok(locked) = service_disc.lock() {
-        if let Ok(peers_ptr) = locked.peers().lock() {
-            let joined = peers_ptr
-                .iter()
-                .map(|peer| peer.to_string())
-                .collect::<Vec<String>>()
-                .join(",");
-            let bytes = joined.as_bytes();
+    if let Ok(peers_ptr) = service_disc.peers().lock() {
+        let joined = peers_ptr
+            .iter()
+            .map(|peer| peer.to_string())
+            .collect::<Vec<String>>()
+            .join(",");
+        let bytes = joined.as_bytes();
 
-            info!("lib: Get peers (peers={})", joined);
+        info!("lib: Get peers (peers={})", joined);
 
-            unsafe {
-                copy(bytes.as_ptr(), buffer as *mut u8, bytes.len());
-                *buffer.offset(bytes.len() as isize) = 0;
-            }
-            return bytes.len() as u32;
+        unsafe {
+            copy(bytes.as_ptr(), buffer as *mut u8, bytes.len());
+            *buffer.offset(bytes.len() as isize) = 0;
         }
+        return bytes.len() as u32;
     }
     error!("lib: Failed to get peers");
     0
@@ -327,24 +324,22 @@ pub extern "C" fn airx_broadcast_text(
     };
     let text_serialized = Arc::new(packet.serialize());
 
-    if let Ok(locked) = service_disc.clone().lock() {
-        if let Ok(peers_ptr) = locked.peers().lock() {
-            for peer in peers_ptr.iter() {
-                let thread_peer = peer.clone();
-                let thread_config = config.clone();
-                let thread_text_serialized = text_serialized.clone();
-                std::thread::spawn(move || {
-                    info!("lib: Sending text to (addr={}:{})",
+    if let Ok(peers_ptr) = service_disc.peers().lock() {
+        for peer in peers_ptr.iter() {
+            let thread_peer = peer.clone();
+            let thread_config = config.clone();
+            let thread_text_serialized = text_serialized.clone();
+            std::thread::spawn(move || {
+                info!("lib: Sending text to (addr={}:{})",
                             thread_peer.host(), thread_config.data_service_listen_port);
-                    let _ = DataService::send_once_with_retry(
-                        &thread_peer,
-                        thread_config.data_service_listen_port,
-                        MagicNumbers::Text,
-                        &thread_text_serialized,
-                        Duration::from_millis(500),
-                    );
-                });
-            }
+                let _ = DataService::send_once_with_retry(
+                    &thread_peer,
+                    thread_config.data_service_listen_port,
+                    MagicNumbers::Text,
+                    &thread_text_serialized,
+                    Duration::from_millis(500),
+                );
+            });
         }
     }
 }

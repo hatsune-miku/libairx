@@ -1,7 +1,7 @@
 use crate::service::discovery_service::DiscoveryService;
 use crate::service::data_service::DataService;
-use crate::util::shared_mutable::SharedMutable;
 use std::io;
+use std::sync::Arc;
 
 pub struct AirXServiceConfig {
     pub discovery_service_server_port: u16,
@@ -26,8 +26,8 @@ impl Clone for AirXServiceConfig {
 #[allow(dead_code)]
 pub struct AirXService {
     config: AirXServiceConfig,
-    text_service: SharedMutable<DataService>,
-    discovery_service: SharedMutable<DiscoveryService>,
+    text_service: Arc<DataService>,
+    discovery_service: Arc<DiscoveryService>,
 }
 
 #[allow(dead_code)]
@@ -39,16 +39,16 @@ impl AirXService {
 
         Ok(Self {
             config: config.clone(),
-            text_service: SharedMutable::new(text_service),
-            discovery_service: SharedMutable::new(discovery_service),
+            text_service: Arc::new(text_service),
+            discovery_service: Arc::new(discovery_service),
         })
     } // run
 
-    pub fn data_service(&self) -> SharedMutable<DataService> {
+    pub fn text_service(&self) -> Arc<DataService> {
         self.text_service.clone()
     }
 
-    pub fn discovery_service(&self) -> SharedMutable<DiscoveryService> {
+    pub fn discovery_service(&self) -> Arc<DiscoveryService> {
         self.discovery_service.clone()
     }
 

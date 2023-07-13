@@ -1,20 +1,19 @@
-use std::net::SocketAddr;
 use log::{info, warn};
 use crate::packet::data::file_coming_packet::FileComingPacket;
-use crate::packet::data_packet::DataPacket;
 use crate::packet::protocol::serialize::Serialize;
-use crate::service::context::data_service_context::DataServiceContext;
+use crate::service::handler::context::{ConnectionControl, HandlerContext};
 
-pub fn handle(
-    packet: &DataPacket,
-    socket_addr: &SocketAddr,
-    context: &DataServiceContext
-) {
-    let packet = match FileComingPacket::deserialize(packet.data()) {
+pub fn handle(context: HandlerContext) -> ConnectionControl {
+    let packet = match FileComingPacket::deserialize(context.packet().data()) {
         Ok(p) => p,
-        Err(e) => return warn!("Failed to deserialize file coming packet ({:?}).", e),
+        Err(e) => {
+            warn!("Failed to deserialize file coming packet ({:?}).", e);
+            return ConnectionControl::CloseConnection;
+        },
     };
 
-    info!("Received file coming packet from {}.", socket_addr);
-    (context.file_coming_callback())(&packet, &socket_addr);
+    info!("Received file coming packet from {}.", context.socket_addr());
+    (context.data_service_context().file_coming_callback())(&packet, &context.socket_addr());
+
+    ConnectionControl::CloseConnection
 }
