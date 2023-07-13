@@ -9,6 +9,8 @@ int32_t airx_version(void);
 
 int32_t airx_compatibility_number(void);
 
+uint64_t airx_version_string(char *buffer);
+
 void airx_init(void);
 
 struct AirXService *airx_create(uint16_t discovery_service_server_port,
@@ -24,7 +26,7 @@ void airx_data_service(struct AirXService *airx_ptr,
                        void (*text_callback_c)(const char*, uint32_t, const char*, uint32_t),
                        void (*file_coming_callback_c)(uint64_t, const char*, uint32_t, const char*, uint32_t),
                        void (*file_sending_callback_c)(uint8_t, uint64_t, uint64_t, uint8_t),
-                       void (*file_part_callback_c)(uint8_t, uint64_t, uint64_t, const uint8_t*),
+                       bool (*file_part_callback_c)(uint8_t, uint64_t, uint64_t, const uint8_t*),
                        bool (*should_interrupt)(void));
 
 bool airx_lan_broadcast(struct AirXService *airx_ptr);
