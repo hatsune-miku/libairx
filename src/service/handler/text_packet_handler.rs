@@ -12,8 +12,17 @@ pub fn handle(context: HandlerContext) -> ConnectionControl {
         },
     };
 
+    let peer = context
+        .data_service_context()
+        .discovery_service()
+        .peer_lookup(&context.socket_addr());
+    let peer = match peer {
+        Some(ref p) => Some(p),
+        None => None,
+    };
+
     info!("Received text packet from {}.", context.socket_addr());
-    (context.data_service_context().text_callback())(&packet, &context.socket_addr());
+    (context.data_service_context().text_callback())(&packet, peer);
 
     ConnectionControl::CloseConnection
 }

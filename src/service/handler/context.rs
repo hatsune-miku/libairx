@@ -15,13 +15,13 @@ impl<'a> HandlerContext<'a> {
         tt: &'a mut DataTransmit,
         packet: &'a DataPacket,
         socket_addr: SocketAddr,
-        context: &'a DataServiceContext,
+        data_service_context: &'a DataServiceContext,
     ) -> Self {
         Self {
             tt,
             packet,
             socket_addr,
-            data_service_context: context,
+            data_service_context,
         }
     }
 

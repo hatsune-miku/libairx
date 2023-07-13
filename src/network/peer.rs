@@ -1,11 +1,14 @@
 use std::hash::Hash;
 use std::net::{Ipv4Addr};
+use std::string::ToString;
+
+pub const DEFAULT_HOSTNAME: &str = "<empty>";
 
 #[derive(Eq, Clone)]
 pub struct Peer {
     host: String,
     port: u16,
-    host_name: Option<String>,
+    host_name: String,
 }
 
 impl Hash for Peer {
@@ -28,7 +31,7 @@ impl ToString for Peer {
     fn to_string(&self) -> String {
         format!(
             "{}@{}:{}",
-            escape_host_name(&self.host_name),
+            &self.host_name,
             self.host,
             self.port,
         )
@@ -41,8 +44,8 @@ impl Peer {
             host: socket_addr.to_string(),
             port,
             host_name: match host_name {
-                Some(name) => Some(name.clone()),
-                None => None,
+                Some(name) => name.clone(),
+                None => DEFAULT_HOSTNAME.to_string(),
             },
         }
     }
@@ -52,8 +55,8 @@ impl Peer {
             host: host.clone(),
             port,
             host_name: match host_name {
-                Some(name) => Some(name.clone()),
-                None => None,
+                Some(name) => name.clone(),
+                None => DEFAULT_HOSTNAME.to_string(),
             },
         }
     }
@@ -66,17 +69,7 @@ impl Peer {
         self.port
     }
 
-    pub fn host_name(&self) -> Option<&String> {
-        match &self.host_name {
-            Some(name) => Some(name),
-            None => None,
-        }
-    }
-}
-
-fn escape_host_name(host_name: &Option<String>) -> String {
-    match host_name {
-        Some(x) => x.clone(),
-        None => String::from("<empty>"),
+    pub fn host_name(&self) -> &String {
+        &self.host_name
     }
 }

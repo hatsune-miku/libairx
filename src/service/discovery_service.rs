@@ -4,7 +4,7 @@ use network_interface::{Addr, NetworkInterface, NetworkInterfaceConfig};
 use std::collections::HashSet;
 use std::io;
 use std::io::ErrorKind::{TimedOut, WouldBlock};
-use std::net::{IpAddr, Ipv4Addr, SocketAddrV4, UdpSocket};
+use std::net::{IpAddr, Ipv4Addr, SocketAddr, SocketAddrV4, UdpSocket};
 use std::sync::{Arc, Mutex};
 use std::time::Duration;
 use log::{error, info};
@@ -115,6 +115,17 @@ impl DiscoveryService {
 
     pub fn peers(&self) -> PeerCollectionType {
         self.peer_set_ptr.clone()
+    }
+
+    pub fn peer_lookup(&self, socker_address: &SocketAddr) -> Option<Peer> {
+        if let Ok(locked) = self.peer_set_ptr.lock() {
+            for peer in locked.iter() {
+                if *peer.host() == socker_address.ip().to_string() {
+                    return Some(peer.clone());
+                }
+            }
+        }
+        None
     }
 
     // Suppress: `std::` can't be omitted but IDEA thinks it can.

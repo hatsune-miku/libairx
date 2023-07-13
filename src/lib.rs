@@ -1,10 +1,9 @@
 extern crate core;
 
 use std::fs::File;
-use std::net::SocketAddr;
 use lib_util::string_from_lengthen_ptr;
 
-use crate::network::peer::Peer;
+use crate::network::peer::{Peer};
 use crate::service::airx_service::{AirXService};
 use crate::service::discovery_service::DiscoveryService;
 use std::os::raw::c_char;
@@ -15,6 +14,7 @@ use log4rs::append::console::ConsoleAppender;
 use log4rs::Config;
 use log4rs::config::{Appender, Logger, Root};
 use log::{error, info, LevelFilter};
+use crate::network::peer;
 use crate::packet::data::file_coming_packet::FileComingPacket;
 use crate::packet::data::file_part_packet::FilePartPacket;
 use crate::packet::data::file_receive_response_packet::FileReceiveResponsePacket;
@@ -164,9 +164,12 @@ pub extern "C" fn airx_data_service(
 
     let should_interrupt_callback = move || should_interrupt();
 
-    let text_callback = move |text_packet: &TextPacket, socket_addr: &SocketAddr| {
+    let text_callback = move |text_packet: &TextPacket, peer: Option<&Peer>| {
         let text_cstr = text_packet.text().as_ptr();
-        let socket_addr_str = socket_addr.to_string();
+        let socket_addr_str = match peer {
+            Some(p) => p.to_string(),
+            None => peer::DEFAULT_HOSTNAME.to_string(),
+        };
         let socket_addr_cstr = socket_addr_str.as_ptr();
         text_callback_c(
             text_cstr as *const c_char,
@@ -176,9 +179,12 @@ pub extern "C" fn airx_data_service(
         );
     };
 
-    let file_coming_callback = move |file_coming_packet: &FileComingPacket, socket_addr: &SocketAddr| {
+    let file_coming_callback = move |file_coming_packet: &FileComingPacket, peer: Option<&Peer>| {
         let file_name_cstr = file_coming_packet.file_name().as_ptr();
-        let socket_addr_str = socket_addr.to_string();
+        let socket_addr_str = match peer {
+            Some(p) => p.to_string(),
+            None => peer::DEFAULT_HOSTNAME.to_string(),
+        };
         let socket_addr_cstr = socket_addr_str.as_ptr();
         file_coming_callback_c(
             file_coming_packet.file_size(),
@@ -189,7 +195,7 @@ pub extern "C" fn airx_data_service(
         );
     };
 
-    let file_sending_callback = move |file_sending_packet: &FileSendingPacket, _: &SocketAddr| {
+    let file_sending_callback = move |file_sending_packet: &FileSendingPacket, _: Option<&Peer>| {
         file_sending_callback_c(
             file_sending_packet.file_id(),
             file_sending_packet.progress(),
@@ -198,7 +204,7 @@ pub extern "C" fn airx_data_service(
         );
     };
 
-    let file_part_callback = move |file_part_packet: &FilePartPacket, _: &SocketAddr| -> bool {
+    let file_part_callback = move |file_part_packet: &FilePartPacket, _: Option<&Peer>| -> bool {
         let data = file_part_packet.data().clone();
         let data_cstr = data.as_ptr();
 
@@ -217,6 +223,7 @@ pub extern "C" fn airx_data_service(
         Arc::new(Box::new(file_coming_callback)),
         Arc::new(Box::new(file_sending_callback)),
         Arc::new(Box::new(file_part_callback)),
+        airx.discovery_service().clone(),
     );
 
     info!("lib: Data service starting (addr={},port={})",

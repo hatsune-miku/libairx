@@ -13,7 +13,7 @@ pub fn handle(context: HandlerContext) -> ConnectionControl {
     };
 
     trace!("Received file part packet from {} (offset={}, length={}).", context.socket_addr(), packet.offset(), packet.length());
-    let should_interrupt = (context.data_service_context().file_part_callback())(&packet, &context.socket_addr());
+    let should_interrupt = (context.data_service_context().file_part_callback())(&packet, None);
     if should_interrupt {
         info!("File part callback requested to interrupt connection.");
         return ConnectionControl::CloseConnection;

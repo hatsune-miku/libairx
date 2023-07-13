@@ -40,7 +40,7 @@ pub fn handle(context: HandlerContext) -> ConnectionControl {
             0,
             packet.file_size(),
             status,
-        ), &context.socket_addr());
+        ), None);
     };
 
     // Update status!
@@ -70,7 +70,7 @@ pub fn handle(context: HandlerContext) -> ConnectionControl {
     // Connect to peer, start data transmission and close connection.
     let mut buffer = vec![0u8; BUFFER_SIZE];
 
-    // Log on every 100th iteration.
+    // Log on every 10th iteration.
     let mut log_counter = 0;
 
     let mut session = |dt: &mut DataTransmit,
@@ -137,8 +137,8 @@ pub fn handle(context: HandlerContext) -> ConnectionControl {
                 return Err(e);
             }
 
-            // Report on every 100th packet.
-            if log_counter >= 100 {
+            // Report on every 10th packet.
+            if log_counter >= 10 {
                 log_counter = 0;
                 info!("File part status: (fid={}, progress={}/{}).", packet.file_id(), offset, packet.file_size());
 
@@ -149,7 +149,7 @@ pub fn handle(context: HandlerContext) -> ConnectionControl {
                     packet.file_size(),
                     FileSendingStatus::InProgress,
                 );
-                (context.data_service_context().file_sending_callback())(&local_packet, &context.socket_addr());
+                (context.data_service_context().file_sending_callback())(&local_packet, None);
             }
 
             offset += bytes_read as u64;
