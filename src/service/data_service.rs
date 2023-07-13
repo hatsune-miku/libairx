@@ -16,7 +16,7 @@ use crate::service::handler::{file_coming_packet_handler, file_part_packet_handl
 use crate::service::handler::context::{HandlerContext, ConnectionControl};
 use crate::service::ShouldInterruptFunctionType;
 
-pub type OnPacketReceivedFunctionType<T> = Arc<Box<dyn Fn(&T, &SocketAddr) + Send + Sync>>;
+pub type OnPacketReceivedFunctionType<T, R> = Arc<Box<dyn Fn(&T, &SocketAddr) -> R + Send + Sync>>;
 
 
 const TCP_ACCEPT_WAIT_MILLIS: u64 = 10;

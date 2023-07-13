@@ -36,12 +36,12 @@ pub mod extension;
 
 #[export_name = "airx_version"]
 pub extern "C" fn airx_version() -> i32 {
-    20230710
+    20230713
 }
 
 #[export_name = "airx_compatibility_number"]
 pub extern "C" fn airx_compatibility_number() -> i32 {
-    2
+    3
 }
 
 #[export_name = "airx_version_string"]
@@ -156,7 +156,7 @@ pub extern "C" fn airx_data_service(
         u64, /* offset */
         u64, /* length */
         *const u8, /* data */
-    ),
+    ) -> bool,
     should_interrupt: extern "C" fn() -> bool,
 ) {
     let airx = unsafe { &mut *airx_ptr };
@@ -198,7 +198,7 @@ pub extern "C" fn airx_data_service(
         );
     };
 
-    let file_part_callback = move |file_part_packet: &FilePartPacket, _: &SocketAddr| {
+    let file_part_callback = move |file_part_packet: &FilePartPacket, _: &SocketAddr| -> bool {
         let data = file_part_packet.data().clone();
         let data_cstr = data.as_ptr();
 
@@ -207,7 +207,7 @@ pub extern "C" fn airx_data_service(
             file_part_packet.offset(),
             file_part_packet.length(),
             data_cstr,
-        );
+        )
     };
 
     let context = DataServiceContext::new(
