@@ -10,12 +10,12 @@ use crate::packet::data::file_receive_response_packet::FileReceiveResponsePacket
 use crate::packet::data::local::file_sending_packet::{FileSendingPacket, FileSendingStatus};
 use crate::packet::data::magic_numbers::MagicNumbers;
 use crate::packet::data_packet::DataPacket;
-use crate::packet::data_transmission::DataTransmission;
+use crate::packet::data_transmission::DataTransmit;
 use crate::packet::protocol::serialize::Serialize;
 use crate::service::context::data_service_context::DataServiceContext;
 use crate::service::data_service::DataService;
 
-const BUFFER_SIZE: usize = 256 * 1024;
+const BUFFER_SIZE: usize = 8 * 1024 * 1024;
 const TIMEOUT_MILLIS: u64 = 1000;
 const DATA_SESSION_RECONNECT_TRIES: u32 = 3;
 
@@ -72,10 +72,10 @@ pub fn handle(
     // Connect to peer, start data transmission and close connection.
     let mut buffer = vec![0u8; BUFFER_SIZE];
 
-    // Log on every 10th iteration.
+    // Log on every 100th iteration.
     let mut log_counter = 0;
 
-    let mut session = |dt: &mut DataTransmission,
+    let mut session = |dt: &mut DataTransmit,
                        state: &mut TransmissionState| -> Result<(), io::Error> {
         let mut file = match File::open(filename) {
             Ok(f) => f,
@@ -139,8 +139,8 @@ pub fn handle(
                 return Err(e);
             }
 
-            // Report on every 10th packet.
-            if log_counter >= 10 {
+            // Report on every 100th packet.
+            if log_counter >= 100 {
                 log_counter = 0;
                 info!("File part status: (fid={}, progress={}/{}).", packet.file_id(), offset, packet.file_size());
 

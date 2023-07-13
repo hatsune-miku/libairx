@@ -1,6 +1,6 @@
 use crate::network::peer::Peer;
 use crate::network::tcp_server::TcpServer;
-use crate::packet::data_transmission::DataTransmission;
+use crate::packet::data_transmission::DataTransmit;
 use std::io;
 use std::io::ErrorKind::{TimedOut, WouldBlock};
 use std::net::{SocketAddr, TcpStream};
@@ -10,7 +10,6 @@ use std::time::Duration;
 use log::{info, trace, warn};
 use crate::packet::data::magic_numbers::MagicNumbers;
 use crate::packet::data_packet::DataPacket;
-use crate::packet::protocol::data::{SendDataWithRetry};
 use crate::packet::protocol::serialize::Serialize;
 use crate::service::context::data_service_context::DataServiceContext;
 use crate::service::handler::{file_coming_packet_handler, file_part_packet_handler, file_receive_response_packet_handler, text_packet_handler};
@@ -39,11 +38,11 @@ impl DataService {
         connect_timeout: Duration,
     ) -> Result<(), io::Error> {
         let stream = connect(peer, port, connect_timeout)?;
-        let mut dt = DataTransmission::from(stream);
+        let mut dt = DataTransmit::from(stream);
 
         // Wrap with data packet.
         let data_packet = DataPacket::new(magic_number.value(), data);
-        let result = dt.send_data_with_retry(&data_packet.serialize());
+        let result = dt.send_data_progress_with_retry(&data_packet.serialize(), |_| ());
         let _ = dt.close();
 
         match result {
@@ -59,11 +58,11 @@ impl DataService {
         session: &mut F,
         reconnect_try_count: u32,
         mut state: State,
-    ) -> Result<(), io::Error> where F: FnMut(&mut DataTransmission, &mut State) -> Result<(), io::Error> {
+    ) -> Result<(), io::Error> where F: FnMut(&mut DataTransmit, &mut State) -> Result<(), io::Error> {
         let mut tries = 0;
         while tries < reconnect_try_count {
             let stream = connect(peer, port, connect_timeout)?;
-            let mut dt = DataTransmission::from(stream);
+            let mut dt = DataTransmit::from(stream);
 
             match session(&mut dt, &mut state) {
                 Ok(_) => {
@@ -81,7 +80,7 @@ impl DataService {
 
     #[allow(unused)]
     fn dispatch_data_packet(
-        tt: &mut DataTransmission,
+        tt: &mut DataTransmit,
         packet: &DataPacket,
         socket_addr: SocketAddr,
         context: &DataServiceContext,
@@ -104,7 +103,7 @@ impl DataService {
                 return;
             }
         };
-        let mut tt = DataTransmission::from(stream);
+        let mut tt = DataTransmit::from(stream);
 
         loop {
             let raw_data = match tt.read_data_progress_with_retry(|portion| {
