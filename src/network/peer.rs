@@ -2,13 +2,23 @@ use std::hash::Hash;
 use std::net::{Ipv4Addr};
 use std::string::ToString;
 
-pub const DEFAULT_HOSTNAME: &str = "<empty>";
+const DEFAULT_HOSTNAME: &str = "<empty>";
 
 #[derive(Eq, Clone)]
 pub struct Peer {
     host: String,
     port: u16,
     host_name: String,
+}
+
+impl Default for Peer {
+    fn default() -> Self {
+        Self {
+            host: String::from("0.0.0.0"),
+            port: 0,
+            host_name: DEFAULT_HOSTNAME.to_string(),
+        }
+    }
 }
 
 impl Hash for Peer {

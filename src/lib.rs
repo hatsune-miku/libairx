@@ -14,7 +14,6 @@ use log4rs::append::console::ConsoleAppender;
 use log4rs::Config;
 use log4rs::config::{Appender, Logger, Root};
 use log::{error, info, LevelFilter};
-use crate::network::peer;
 use crate::packet::data::file_coming_packet::FileComingPacket;
 use crate::packet::data::file_part_packet::FilePartPacket;
 use crate::packet::data::file_receive_response_packet::FileReceiveResponsePacket;
@@ -170,7 +169,7 @@ pub extern "C" fn airx_data_service(
         let text_cstr = text_packet.text().as_ptr();
         let socket_addr_str = match peer {
             Some(p) => p.to_string(),
-            None => peer::DEFAULT_HOSTNAME.to_string(),
+            None => Peer::default().to_string(),
         };
         let socket_addr_cstr = socket_addr_str.as_ptr();
         text_callback_c(
@@ -185,7 +184,7 @@ pub extern "C" fn airx_data_service(
         let file_name_cstr = file_coming_packet.file_name().as_ptr();
         let socket_addr_str = match peer {
             Some(p) => p.to_string(),
-            None => peer::DEFAULT_HOSTNAME.to_string(),
+            None => Peer::default().to_string(),
         };
         let socket_addr_cstr = socket_addr_str.as_ptr();
         file_coming_callback_c(
