@@ -37,6 +37,8 @@ impl DataService {
         connect_timeout: Duration,
     ) -> Result<(), io::Error> {
         let stream = connect(peer, port, connect_timeout)?;
+        info!("Connection established with {}.", peer.to_string());
+
         let mut dt = DataTransmit::from(stream);
 
         // Wrap with data packet.
@@ -61,6 +63,8 @@ impl DataService {
         let mut tries = 0;
         while tries < reconnect_try_count {
             let stream = connect(peer, port, connect_timeout)?;
+            info!("Data session established with {}.", peer.to_string());
+
             let mut dt = DataTransmit::from(stream);
 
             match session(&mut dt, &mut state) {
