@@ -339,13 +339,17 @@ pub extern "C" fn airx_broadcast_text(
             std::thread::spawn(move || {
                 info!("lib: Sending text to (addr={}:{})",
                             thread_peer.host(), thread_config.data_service_listen_port);
-                let _ = DataService::send_once_with_retry(
+                if let Err(e) = DataService::send_once_with_retry(
                     &thread_peer,
                     thread_config.data_service_listen_port,
                     MagicNumbers::Text,
                     &thread_text_serialized,
                     Duration::from_millis(500),
-                );
+                ) {
+                    error!(
+                        "lib: Failed to send text to (addr={}:{}): {}",
+                        thread_peer.host(), thread_config.data_service_listen_port, e);
+                }
             });
         }
     }
@@ -388,13 +392,21 @@ pub extern "C" fn airx_try_send_file(
     info!("lib: Sending file info {} to (addr={}:{})",
         file_path, host, config.data_service_listen_port);
     let packet = FileComingPacket::new(metadata.len(), file_path.clone());
-    let _ = DataService::send_once_with_retry(
+    match DataService::send_once_with_retry(
         &Peer::new(&host, config.data_service_listen_port, None),
         config.data_service_listen_port,
         MagicNumbers::FileComing,
         &packet.serialize(),
         Duration::from_millis(500),
-    );
+    ) {
+        Ok(_) => {
+            info!("lib: File info {} sent to (addr={}:{})",
+                file_path, host, config.data_service_listen_port);
+        }
+        Err(e) => {
+            error!("lib: Failed to send file info {}: {}", file_path, e);
+        }
+    }
 }
 
 #[export_name = "airx_respond_to_file"]
@@ -415,11 +427,20 @@ pub extern "C" fn airx_respond_to_file(
 
     let packet = FileReceiveResponsePacket::new(
         file_id, file_size, file_path, accept);
-    let _ = DataService::send_once_with_retry(
+    match DataService::send_once_with_retry(
         &Peer::new(&host, config.data_service_listen_port, None),
         config.data_service_listen_port,
         MagicNumbers::FileReceiveResponse,
         &packet.serialize(),
         Duration::from_millis(500),
-    );
+    ) {
+        Ok(_) => {
+            info!("lib: Successfully sent file response to (addr={}:{})",
+                host, config.data_service_listen_port);
+        }
+        Err(e) => {
+            error!("lib: Failed to send file response to (addr={}:{}): {}",
+                host, config.data_service_listen_port, e);
+        }
+    }
 }
