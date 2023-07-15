@@ -34,6 +34,8 @@ pub mod compatibility;
 pub mod proto;
 pub mod extension;
 
+const CONNECTION_TIMEOUT_MILLIS: u64 = 3000;
+
 #[export_name = "airx_version"]
 pub extern "C" fn airx_version() -> i32 {
     20230715
@@ -303,7 +305,7 @@ pub extern "C" fn airx_send_text(
         config.data_service_listen_port,
         MagicNumbers::Text,
         &text_packet.serialize(),
-        Duration::from_millis(500),
+        Duration::from_millis(CONNECTION_TIMEOUT_MILLIS),
     );
 }
 
@@ -344,7 +346,7 @@ pub extern "C" fn airx_broadcast_text(
                     thread_config.data_service_listen_port,
                     MagicNumbers::Text,
                     &thread_text_serialized,
-                    Duration::from_millis(500),
+                    Duration::from_millis(CONNECTION_TIMEOUT_MILLIS),
                 ) {
                     error!(
                         "lib: Failed to send text to (addr={}:{}): {}",
@@ -397,7 +399,7 @@ pub extern "C" fn airx_try_send_file(
         config.data_service_listen_port,
         MagicNumbers::FileComing,
         &packet.serialize(),
-        Duration::from_millis(500),
+        Duration::from_millis(CONNECTION_TIMEOUT_MILLIS),
     ) {
         Ok(_) => {
             info!("lib: File info {} sent to (addr={}:{})",
@@ -432,7 +434,7 @@ pub extern "C" fn airx_respond_to_file(
         config.data_service_listen_port,
         MagicNumbers::FileReceiveResponse,
         &packet.serialize(),
-        Duration::from_millis(500),
+        Duration::from_millis(CONNECTION_TIMEOUT_MILLIS),
     ) {
         Ok(_) => {
             info!("lib: Successfully sent file response to (addr={}:{})",
