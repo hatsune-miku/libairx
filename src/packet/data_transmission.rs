@@ -8,7 +8,7 @@ use log::warn;
 use crate::compatibility::unified_endian::UnifiedEndian;
 
 const PACKET_TRY_TIMES: u64 = 3;
-const TCP_ACCEPT_TRY_WAIT_MILLISECONDS: u64 = 1500;
+const TCP_ACCEPT_TRY_WAIT_MILLISECONDS: u64 = 100;
 
 pub struct DataTransmit {
     stream: TcpStream,
