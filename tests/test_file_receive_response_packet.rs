@@ -1,5 +1,5 @@
-use libairx::packet::data::file_receive_response_packet::FileReceiveResponsePacket;
-use libairx::packet::protocol::serialize::Serialize;
+use airx::packet::data::file_receive_response_packet::FileReceiveResponsePacket;
+use airx::packet::protocol::serialize::Serialize;
 
 #[test]
 fn test_test_file_receive_response_packet() {

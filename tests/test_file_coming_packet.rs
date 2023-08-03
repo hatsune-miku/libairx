@@ -1,5 +1,5 @@
-use libairx::packet::data::file_coming_packet::FileComingPacket;
-use libairx::packet::protocol::serialize::Serialize;
+use airx::packet::data::file_coming_packet::FileComingPacket;
+use airx::packet::protocol::serialize::Serialize;
 
 #[test]
 fn test_file_coming_packet_serializable() {

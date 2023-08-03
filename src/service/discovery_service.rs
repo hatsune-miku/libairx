@@ -1,6 +1,5 @@
 use crate::network::peer::Peer;
 use crate::service::ShouldInterruptFunctionType;
-use network_interface::{Addr, NetworkInterface, NetworkInterfaceConfig};
 use std::collections::HashSet;
 use std::io;
 use std::io::ErrorKind::{TimedOut, WouldBlock};
@@ -18,10 +17,6 @@ const DISCOVERY_TIMEOUT_MILLIS: u64 = 1000;
 
 pub type PeerCollectionType = Arc<Mutex<HashSet<Peer>>>;
 
-trait Broadcast {
-    fn to_broadcast_addr(&self) -> Ipv4Addr;
-}
-
 trait ToIpV4Addr {
     fn to_ipv4_addr(&self) -> Option<Ipv4Addr>;
 }
@@ -35,56 +30,22 @@ impl ToIpV4Addr for IpAddr {
     }
 }
 
-impl Broadcast for Addr {
-    /// Fallback method that calculates
-    /// broadcast address from IP address and netmask.
-    fn to_broadcast_addr(&self) -> Ipv4Addr {
-        let addr_fallback = Ipv4Addr::new(255, 255, 255, 255);
-        let ipv4_addr = match self.ip() {
-            IpAddr::V4(x) => x,
-            _ => addr_fallback,
-        };
-        let mask_addr = match self.netmask() {
-            Some(IpAddr::V4(x)) => x,
-            _ => addr_fallback,
-        };
-
-        let mut ip_octets = ipv4_addr.octets();
-        let mask_octets = mask_addr.octets();
-
-        for i in 0..4 {
-            ip_octets[i] |= !mask_octets[i];
-        }
-
-        Ipv4Addr::from(ip_octets)
-    }
-}
-
-fn scan_local_addresses() -> Result<HashSet<Ipv4Addr>, network_interface::Error> {
-    Ok(NetworkInterface::show()?
+fn scan_local_addresses() -> Result<HashSet<Ipv4Addr>, local_ip_address::Error> {
+    Ok(local_ip_address::list_afinet_netifas()?
         .iter()
-        .filter(|i| i.addr.map_or(false, |a| a.ip().is_ipv4()))
-        .map(|i| i.addr.unwrap().ip().to_ipv4_addr().unwrap())
-        .filter(|ip| ip.is_private())
+        .map(|(_, i)| i)
+        .filter(|i| i.is_ipv4() && !i.is_loopback())
+        .map(|i| i.to_ipv4_addr().unwrap())
         .collect::<HashSet<Ipv4Addr>>()
     )
 }
 
-fn scan_broadcast_addresses() -> Result<HashSet<Ipv4Addr>, network_interface::Error> {
+fn scan_broadcast_addresses() -> Result<HashSet<Ipv4Addr>, local_ip_address::Error> {
     let fallback = Ipv4Addr::new(255, 255, 255, 255);
-    Ok(NetworkInterface::show()?
+    Ok(local_ip_address::list_afinet_netifas()?
         .iter()
-        .map(|i| match i.addr {
-            Some(addr) => match addr.broadcast() {
-                Some(b) => match b.to_ipv4_addr() {
-                    Some(ip) => ip,
-                    None => fallback,
-                },
-                None => addr.to_broadcast_addr(),
-            },
-            None => fallback,
-        })
-        .filter(|ip| !ip.is_loopback())
+        .map(|(_, i)| i.to_ipv4_addr().unwrap_or(fallback))
+        .filter(|i| i.is_broadcast() && !i.is_loopback())
         .collect::<HashSet<Ipv4Addr>>())
 }
 
@@ -198,7 +159,7 @@ impl DiscoveryService {
             locked.insert(Peer::from(
                 &sender_address_ipv4,
                 packet.server_port() as u16,
-                Some(&packet.host_name().to_string())
+                Some(&packet.host_name().to_string()),
             ));
             info!("Added peer {} to peer set.", sender_address);
         }

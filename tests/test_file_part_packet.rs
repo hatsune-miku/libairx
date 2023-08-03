@@ -1,5 +1,5 @@
-use libairx::packet::data::file_part_packet::FilePartPacket;
-use libairx::packet::protocol::serialize::Serialize;
+use airx::packet::data::file_part_packet::FilePartPacket;
+use airx::packet::protocol::serialize::Serialize;
 
 #[test]
 fn test_test_file_part_packet() {

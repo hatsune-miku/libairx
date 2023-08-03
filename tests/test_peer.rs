@@ -1,4 +1,4 @@
-use libairx::network::peer::Peer;
+use airx::network::peer::Peer;
 
 /// Equation of two peers is determined only by their hosts.
 #[test]

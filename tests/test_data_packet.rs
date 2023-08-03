@@ -1,6 +1,6 @@
-use libairx::packet::data::text_packet::TextPacket;
-use libairx::packet::data_packet::DataPacket;
-use libairx::packet::protocol::serialize::Serialize;
+use airx::packet::data::text_packet::TextPacket;
+use airx::packet::data_packet::DataPacket;
+use airx::packet::protocol::serialize::Serialize;
 
 #[test]
 fn test_text_packet_serializable() {

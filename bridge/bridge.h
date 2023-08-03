@@ -3,6 +3,12 @@
 #include <stdint.h>
 #include <stdlib.h>
 
+#define CONNECTION_TIMEOUT_MILLIS 3000
+
+#define AIRX_VERSION 20230802
+
+#define AIRX_COMPATIBLE_NUMBER 4
+
 typedef struct AirXService AirXService;
 
 int32_t airx_version(void);

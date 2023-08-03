@@ -1,7 +1,7 @@
 use std::net::Ipv4Addr;
 use protobuf::Message;
-use libairx::extension::ip_to_u32::ToU32;
-use libairx::proto::discovery_packet::DiscoveryPacket;
+use airx::extension::ip_to_u32::ToU32;
+use airx::proto::discovery_packet::DiscoveryPacket;
 
 #[test]
 fn test_discovery_packet_serializable() {
