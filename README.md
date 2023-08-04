@@ -31,10 +31,21 @@ Provides UTF-8 encoded text and binary data transmission over LAN for AirX.
 cargo test
 ```
 
-- Build
+- Build Native
 
 ```shell
 cargo build --release --lib
+```
+
+- Build Android
+
+Install Android NDK 25.1.8937393 and SDK API 33 (Tiramisu)
+
+Edit `Makefile` to adjust your paths
+
+```shell
+make
+make install-android
 ```
 
 ### Credits
