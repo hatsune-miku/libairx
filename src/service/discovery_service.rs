@@ -11,7 +11,7 @@ use protobuf::Message;
 use crate::compatibility::unified_endian::UnifiedEndian;
 use crate::proto::discovery_packet::DiscoveryPacket;
 use crate::util::os::OSUtil;
-use crate::extension::ip_to_u32::ToU32;
+use crate::extension::ip_to_u32::ConvertIpU32;
 
 const DISCOVERY_TIMEOUT_MILLIS: u64 = 1000;
 

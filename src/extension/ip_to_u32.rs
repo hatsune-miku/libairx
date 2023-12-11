@@ -1,11 +1,11 @@
 use std::net::Ipv4Addr;
 
-pub trait ToU32 {
+pub trait ConvertIpU32 {
     fn to_u32(&self) -> u32;
     fn from_u32(value: u32) -> Self;
 }
 
-impl ToU32 for Ipv4Addr {
+impl ConvertIpU32 for Ipv4Addr {
     fn to_u32(&self) -> u32 {
         let octets = self.octets();
         let mut result: u32 = 0;
