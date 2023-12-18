@@ -1,3 +1,17 @@
+## 👋 Hello hiring manager!
+
+This project (libairx) is part of AirX, the cross-platform text and file sharing system.
+
+`libairx` is a Rust library that empowers AirX with LAN discovery and LAN data transmission.
+You can find other AirX-related projects here:
+
+- [AirX Demo Video](https://hatsune-miku.github.io/airx.html)
+- [Windows Client (WinUI 3)](https://github.com/hatsune-miku/AirX-win)
+- [Android Client (React Native)](https://github.com/hatsune-miku/airx4a)
+- [macOS Client (SwiftUI)](https://github.com/Lsjy44/airX_mac)
+- [Netdisk Frontend (Vue.js)](https://github.com/hatsune-miku/airx-cloud)
+- [Backend (SpringBoot)](https://github.com/hatsune-miku/airx-backend)
+
 ## libairx - AirX Core Library
 
 Provides UTF-8 encoded text and binary data transmission over LAN for AirX.
