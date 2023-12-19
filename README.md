@@ -2,7 +2,7 @@
 
 This project (libairx) is part of AirX, the cross-platform text and file sharing system.
 
-`libairx` is a Rust library that empowers AirX with LAN discovery and LAN data transmission.
+`libairx` is a Rust library that provides AirX with LAN discovery and LAN data transmission.
 You can find other AirX-related projects here:
 
 - [AirX Demo Video](https://hatsune-miku.github.io/airx.html)
