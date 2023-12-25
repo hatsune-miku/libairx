@@ -1,6 +1,6 @@
 use std::net::Ipv4Addr;
 use protobuf::Message;
-use airx::extension::ip_to_u32::ToU32;
+use airx::extension::ip_to_u32::ConvertIpU32;
 use airx::proto::discovery_packet::DiscoveryPacket;
 
 #[test]
